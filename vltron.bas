@@ -2,7 +2,7 @@
 ' Allow for up to 1024 co-ords for each of the 4 players
 dim player_x[4,1024]
 dim player_y[4,1024]
-dim player_direction[4,1024,3]
+dim player_direction[4]
 dim x_move[4]
 dim y_move[4]
 while true
