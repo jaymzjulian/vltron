@@ -1,11 +1,11 @@
 
-while true
 ' Allow for up to 1024 co-ords for each of the 4 players
 dim player_x[4,1024]
 dim player_y[4,1024]
 dim player_direction[4,1024,3]
 dim x_move[4]
 dim y_move[4]
+while true
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 player_direction = { 0, 2, 1, 3 }
@@ -343,16 +343,18 @@ while game_is_playing do
 
 endwhile
 
+print "hit game over"
+call ClearScreen
 call ReturnToOriginSprite()
-call MoveSprite(-32, -32)
-call TextSprite("GAME OVER - PRESS 2 AND 3")
+call TextSprite("GAME OVER PRESS 2+3")
 done_waiting = false
-while done_waiting
+while done_waiting = false
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   if controls[1, 4] = 1 and controls[1,5] = 1
     done_waiting = true
   endif
 endwhile
+print "restart!"
 
 endwhile
 
