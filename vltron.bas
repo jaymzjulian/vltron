@@ -343,6 +343,8 @@ while game_is_playing do
 
 endwhile
 
+call ReturnToOriginSprite()
+call MoveSprite(-32, -32)
 call TextSprite("GAME OVER - PRESS 2 AND 3")
 done_waiting = false
 while done_waiting
