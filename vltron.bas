@@ -174,7 +174,7 @@ while game_is_playing do
       ' of our three angles, find which one will kill us the least quickly
       directions_to_test = { player_direction[p], (player_direction[p]+1) mod 4, (player_direction[p]+3) mod 4} 
 
-      if (rand() mod 16 = 1)
+      if (rand() mod 8 = 1)
         best_dir = player_direction[p]
         best_len = 0
 
@@ -344,7 +344,6 @@ while game_is_playing do
 endwhile
 
 print "hit game over"
-call ClearScreen
 call ReturnToOriginSprite()
 call TextSprite("GAME OVER PRESS 2+3")
 done_waiting = false
