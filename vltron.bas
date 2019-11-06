@@ -7,7 +7,7 @@ dim x_move[4]
 dim y_move[4]
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
-player_direction = { 1, 2, 3, 4 }
+player_direction = { 1, 3, 2, 4 }
 ' This is where in the static array the players are
 dim player_trail[4]
 dim player_trail3d[4]
@@ -115,10 +115,10 @@ gridlines_y = 8
 
 player_pos = {1,1,1,1}
 for p = 1 to player_count
-  player_x[p, player_pos[p]] = (arena_size_x / 2) - start_distance
-  player_y[p, player_pos[p]] = (arena_size_y / 2) - start_distance
-  player_x[p, player_pos[p]+1] = (arena_size_x / 2) - start_distance
-  player_y[p, player_pos[p]+1] = (arena_size_y / 2) - start_distance
+  player_x[p, player_pos[p]] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]]
+  player_y[p, player_pos[p]] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]]
+  player_x[p, player_pos[p]+1] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]]
+  player_y[p, player_pos[p]+1] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]]
   player_pos[p] = player_pos[p] + 1
 next
 
@@ -129,10 +129,16 @@ cycle_sprite = Lines3dSprite(lightcycle())
 
 
 call drawscreen
+call ReturnToOriginSprite()
+call MoveSprite(-32, -32)
+text = TextSprite("PRESS BUTTONS 1+2 TO START")
 
 last_controls = WaitForFrame(JoystickNone, Controller1, JoystickNone)
 game_started = false
+active_player = 0
 while game_is_playing do
+  active_player = active_player + 1
+  active_player = active_player mod player_count
   ' grab the controls
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   ' handle player input
@@ -212,16 +218,19 @@ while game_is_playing do
     arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] = p
     endif
     
-    ' update the cycle position
-    ' FIXME: add scaling, obv
-    call SpriteTranslate(cycle_sprite, {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
-    call SpriteSetRotation(cycle_sprite, 0, 0, sprrot[player_direction[p]+1])
-  
   next
+  ' update the cycle position
+  ' FIXME: add scaling, obv
+  call SpriteTranslate(cycle_sprite, {player_x[active_player+1, player_pos[active_player+1]] - arena_size_x/2, 1, player_y[active_player+1, player_pos[active_player+1]] - arena_size_y/2})
+  call SpriteSetRotation(cycle_sprite, 0, 0, sprrot[player_direction[active_player+1]+1])
+  
   last_controls = controls
 
-  if controls[1, 4] = 1 and controls[1,3] = 1
-    game_started = true
+  if game_started = false
+    if controls[1, 4] = 1 and controls[1,3] = 1
+      game_started = true
+      call drawscreen
+    endif
   endif
 
   ' look at the player
@@ -285,6 +294,7 @@ while game_is_playing do
   'call SpritePrintVectors(player_trail3d[1])
 
   call cameraSetRotation(y_angle, 0, -z_angle)
+
 
 endwhile
 
@@ -373,11 +383,12 @@ sub drawscreen
     ptr = Lines3dSprite(player_trail3d[p])
     call SpriteClip(ptr, clippingRect)
 
-    ' return to origin before doing 3d things
-    call ReturnToOriginSprite()
-    cycle_sprite = Lines3dSprite(lightcycle())
-    call SpriteClip(cycle_sprite, clippingRect)
   next
+  ' return to origin before doing 3d things
+  ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
+  call ReturnToOriginSprite()
+  cycle_sprite = Lines3dSprite(lightcycle())
+  call SpriteClip(cycle_sprite, clippingRect)
 endsub
 
 
