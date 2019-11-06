@@ -1,4 +1,5 @@
 
+while true
 ' Allow for up to 1024 co-ords for each of the 4 players
 dim player_x[4,1024]
 dim player_y[4,1024]
@@ -34,6 +35,9 @@ max_line_length = 64
 arena_size_x = 128
 arena_size_y = 128
 map_scale = 1
+'arena_size_x = 64
+'arena_size_y = 64
+'map_scale = 0.5
 
 dim arena[arena_size_y,arena_size_y]
 
@@ -169,31 +173,33 @@ while game_is_playing do
     if computer_only[p]
       ' of our three angles, find which one will kill us the least quickly
       directions_to_test = { player_direction[p], (player_direction[p]+1) mod 4, (player_direction[p]+3) mod 4} 
-      best_dir = player_direction[p]
-      best_len = 0
 
-      for c = 1 to 3
-        'print "c=",c," dtt=",directions_to_test[c]+1,x_move[1]
-        current_x = player_x[p, player_pos[p]] + x_move[directions_to_test[c]+1]
-        current_y = player_y[p, player_pos[p]] + y_move[directions_to_test[c]+1]
-        cdist = 0
-        mdist = 0
-        while collision(current_x, current_y) = false and cdist < 16
-          current_x = current_x + x_move[directions_to_test[c]+1]
-          current_y = current_y + y_move[directions_to_test[c]+1]
-          cdist = cdist + 1
-        endwhile
-        'print cdist
+      if (rand() mod 16 = 1)
+        best_dir = player_direction[p]
+        best_len = 0
 
-        if best_len < cdist
-          best_dir = directions_to_test[c]
-          best_len = cdist
+        for c = 1 to 3
+          'print "c=",c," dtt=",directions_to_test[c]+1,x_move[1]
+          current_x = player_x[p, player_pos[p]] + x_move[directions_to_test[c]+1]
+          current_y = player_y[p, player_pos[p]] + y_move[directions_to_test[c]+1]
+          cdist = 0
+          mdist = 0
+          while collision(current_x, current_y) = false 'and cdist < 32
+            current_x = current_x + x_move[directions_to_test[c]+1]
+            current_y = current_y + y_move[directions_to_test[c]+1]
+            cdist = cdist + 1
+          endwhile
+
+          if best_len < cdist
+            best_dir = directions_to_test[c]
+            best_len = cdist
+          endif
+        next
+        'print "---------------------------------------"
+        if best_dir != player_direction[p] 
+          player_direction[p] = best_dir
+          require_update = 1
         endif
-      next
-      'print "---------------------------------------"
-      if best_dir != player_direction[p] 
-        player_direction[p] = best_dir
-        require_update = 1
       endif
     else
       ' handle input - we use require_update as a flag to know if we
@@ -334,6 +340,17 @@ while game_is_playing do
 
   call cameraSetRotation(y_angle, 0, -z_angle)
 
+
+endwhile
+
+call TextSprite("GAME OVER - PRESS 2 AND 3")
+done_waiting = false
+while done_waiting
+  controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+  if controls[1, 4] = 1 and controls[1,5] = 1
+    done_waiting = true
+  endif
+endwhile
 
 endwhile
 
