@@ -7,7 +7,7 @@ dim x_move[4]
 dim y_move[4]
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
-player_direction = { 1, 3, 2, 4 }
+player_direction = { 0, 2, 1, 3 }
 ' This is where in the static array the players are
 dim player_trail[4]
 dim player_trail3d[4]
@@ -50,6 +50,8 @@ map_x = 64
 map_y = 64
 gridlines_x = 8
 gridlines_y = 8
+
+computer_only = { true, true, true, true }
 
 ' draw the floor here, so that it's globla
 ' use zig-zag to avoid large pen movements
@@ -115,17 +117,18 @@ gridlines_y = 8
 
 player_pos = {1,1,1,1}
 for p = 1 to player_count
-  player_x[p, player_pos[p]] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]]
-  player_y[p, player_pos[p]] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]]
-  player_x[p, player_pos[p]+1] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]]
-  player_y[p, player_pos[p]+1] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]]
+  player_x[p, player_pos[p]] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]+1]
+  player_y[p, player_pos[p]] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]+1]
+  player_x[p, player_pos[p]+1] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]+1]
+  player_y[p, player_pos[p]+1] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]+1]
   player_pos[p] = player_pos[p] + 1
 next
 
 game_is_playing = true
 
 ' set up the screen and the radar box
-cycle_sprite = Lines3dSprite(lightcycle())
+lc_object = lightcycle()
+cycle_sprite = Lines3dSprite(lc_object)
 
 
 call drawscreen
@@ -160,21 +163,54 @@ while game_is_playing do
 
   for p = 1 to player_count
     if game_started
-    ' handle input - we use require_update as a flag to know if we
-    ' need to redraw the screen...
+
     require_update = 0
-    if controls[1, 4] = 1 and last_controls[1, 4] != 1
-      player_direction[p] = ((player_direction[p] + 1) mod 4) 
-      require_update = 1
-    endif
-    if controls[1, 3] = 1 and last_controls[1, 3] != 1
-      ' mod is signed, so doens't really work here.... sad!
-      player_direction[p] = (player_direction[p] - 1)
-      if player_direction[p] < 0
-        player_direction[p] = player_direction[p] + 4
+    if computer_only[p]
+      ' of our three angles, find which one will kill us the least quickly
+      directions_to_test = { player_direction[p], (player_direction[p]+1) mod 4, (player_direction[p]+3) mod 4} 
+      best_dir = player_direction[p]
+      best_len = 0
+
+      for c = 1 to 3
+        'print "c=",c," dtt=",directions_to_test[c]+1,x_move[1]
+        current_x = player_x[p, player_pos[p]] + x_move[directions_to_test[c]+1]
+        current_y = player_y[p, player_pos[p]] + y_move[directions_to_test[c]+1]
+        cdist = 0
+        mdist = 0
+        while collision(current_x, current_y) = false and cdist < 16
+          current_x = current_x + x_move[directions_to_test[c]+1]
+          current_y = current_y + y_move[directions_to_test[c]+1]
+          cdist = cdist + 1
+        endwhile
+        'print cdist
+
+        if best_len < cdist
+          best_dir = directions_to_test[c]
+          best_len = cdist
+        endif
+      next
+      'print "---------------------------------------"
+      if best_dir != player_direction[p] 
+        player_direction[p] = best_dir
+        require_update = 1
       endif
-      require_update = 1
+    else
+      ' handle input - we use require_update as a flag to know if we
+      ' need to redraw the screen...
+      if controls[1, 4] = 1 and last_controls[1, 4] != 1
+        player_direction[p] = ((player_direction[p] + 1) mod 4) 
+        require_update = 1
+      endif
+      if controls[1, 3] = 1 and last_controls[1, 3] != 1
+        ' mod is signed, so doens't really work here.... sad!
+        player_direction[p] = (player_direction[p] - 1)
+        if player_direction[p] < 0
+          player_direction[p] = player_direction[p] + 4
+        endif
+        require_update = 1
+      endif
     endif
+
     if abs(player_x[p, player_pos[p]] - player_x[p, player_pos[p]-1]) > max_line_length
       require_update = 1
     endif
@@ -208,11 +244,7 @@ while game_is_playing do
     player_trail3d[p][player_pos[p]*4-3, 4] = player_y[p, player_pos[p]] - arena_size_y/2
   
     ' process collisions
-    if player_x[p, player_pos[p]] = 0 or player_y[p, player_pos[p]] = 0 or player_x[p, player_pos[p]] = arena_size_x or player_y[p, player_pos[p]] = arena_size_y
-      game_is_playing = false
-    endif
-    ' got line too long when tryhing to do both of these!
-    if game_is_playing and arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] != 0 
+    if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
       game_is_playing = false
     endif
     arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] = p
@@ -297,6 +329,19 @@ while game_is_playing do
 
 
 endwhile
+
+function collision(x, y)
+    if x = 0 or y = 0 or x = arena_size_x or y = arena_size_y
+      'print "colliusion at ",x," ",y," due to arena"
+      return true
+    endif
+    ' got line too long when tryhing to do both of these!
+    if arena[y, x] != 0 
+      'print "colliusion at ",x," ",y," due to trail ",arena[y,x]
+      return true
+    endif
+    return false
+endfunction
 
 sub drawscreen
   dim p
@@ -387,7 +432,7 @@ sub drawscreen
   ' return to origin before doing 3d things
   ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
   call ReturnToOriginSprite()
-  cycle_sprite = Lines3dSprite(lightcycle())
+  cycle_sprite = Lines3dSprite(lc_object)
   call SpriteClip(cycle_sprite, clippingRect)
 endsub
 
@@ -564,6 +609,7 @@ mysprite={ _
   {DrawTo, 0.228794,-0.205074,-1.221820} , _
   {DrawTo, 0.228794,-0.060064,-1.348492} , _
   {MoveTo,0.004621,-0.057336,-2.000000},   {DrawTo, -0.429884,-0.057417,-1.811660} , _
-  {DrawTo, 0.004621,-0.057336,-2.000000} }
+  {DrawTo, 0.004621,-0.057336,-2.000000}, _
+  {MoveTo, 0, 0, 0}}
   return mysprite
 endfunction
