@@ -134,7 +134,8 @@ cycle_sprite = Lines3dSprite(lc_object)
 call drawscreen
 call ReturnToOriginSprite()
 call MoveSprite(-32, -32)
-text = TextSprite("PRESS BUTTONS 1+2 TO START")
+text = TextSprite("PRESS BUTTONS 1+2 FOR PLAY")
+text = TextSprite("PRESS BUTTONS 3+4 FOR AI")
 
 last_controls = WaitForFrame(JoystickNone, Controller1, JoystickNone)
 game_started = false
@@ -260,7 +261,13 @@ while game_is_playing do
 
   if game_started = false
     if controls[1, 4] = 1 and controls[1,3] = 1
+      computer_only[1] = false
       game_started = true
+      call drawscreen
+    endif
+    if controls[1, 5] = 1 and controls[1,6] = 1
+      game_started = true
+      computer_only[1] = true
       call drawscreen
     endif
   endif
@@ -394,6 +401,7 @@ sub drawscreen
 
     ' and the 3D representation
     call ReturnToOriginSprite()
+    'dim foome3d[player_pos[p]*4-2, 4]
     dim foome3d[player_pos[p]*4-3, 4]
     foome3d[1, 1] = MoveTo
     foome3d[1, 2] = player_x[p, 1]  - arena_size_x/2
@@ -424,6 +432,10 @@ sub drawscreen
       foome3d[seg*4-3, 3] = 0
       foome3d[seg*4-3, 4] = player_y[p, seg] - arena_size_y/2
     next
+    'foome3d[player_pos[p]*4-2, 1] = MoveTo
+    'foome3d[player_pos[p]*4-2, 2] = 0
+    'foome3d[player_pos[p]*4-2, 3] = 0
+    'foome3d[player_pos[p]*4-2, 4] = 0
     print player_pos[p]," segments"
     player_trail3d[p] = foome3d
     ptr = Lines3dSprite(player_trail3d[p])
