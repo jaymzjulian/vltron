@@ -117,21 +117,23 @@ next
 game_is_playing = true
 
 ' set up the screen and the radar box
-cycle_sprite = Lines3dSprite(lc_object)
+dim cycle_sprite[4]
+for p = 1 to player_count
+  cycle_sprite[p] = Lines3dSprite(lc_object)
+next
 
 
+call MoveSprite(-32, -32)
 call drawscreen
 call ReturnToOriginSprite()
-call MoveSprite(-32, -32)
 text = TextSprite("PRESS BUTTONS 1+2 FOR PLAY")
 text = TextSprite("PRESS BUTTONS 3+4 FOR AI")
 
+on error call sprite_overflow
 last_controls = WaitForFrame(JoystickNone, Controller1, JoystickNone)
+on error call 0
 game_started = false
-active_player = 0
 while game_is_playing do
-  active_player = active_player + 1
-  active_player = active_player mod player_count
   ' grab the controls
   on error call sprite_overflow
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
@@ -237,12 +239,10 @@ while game_is_playing do
       arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] = p
     endif
     endif
-    
+    print p
+    call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
+    call SpriteSetRotation(cycle_sprite[p], 0, 0, sprrot[player_direction[p]+1])
   next
-  ' update the cycle position
-  ' FIXME: add scaling, obv
-  call SpriteTranslate(cycle_sprite, {player_x[active_player+1, player_pos[active_player+1]] - arena_size_x/2, 1, player_y[active_player+1, player_pos[active_player+1]] - arena_size_y/2})
-  call SpriteSetRotation(cycle_sprite, 0, 0, sprrot[player_direction[active_player+1]+1])
   
   last_controls = controls
 
@@ -439,13 +439,16 @@ sub drawscreen
     player_trail3d[p] = foome3d
     ptr = Lines3dSprite(player_trail3d[p])
     call SpriteClip(ptr, clippingRect)
-
   next
-  ' return to origin before doing 3d things
-  ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
-  call ReturnToOriginSprite()
-  cycle_sprite = Lines3dSprite(lc_object)
-  call SpriteClip(cycle_sprite, clippingRect)
+
+  ' put these in a secod loop so they appear at the end of the display list...
+  for p = 1 to player_count
+    ' return to origin before doing 3d things
+    ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
+    call ReturnToOriginSprite()
+    cycle_sprite[p] = Lines3dSprite(lc_object)
+    call SpriteClip(cycle_sprite[p], clippingRect)
+  next
 endsub
 
 
