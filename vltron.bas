@@ -5,16 +5,26 @@ dim player_y[4,1024]
 dim player_direction[4]
 dim x_move[4]
 dim y_move[4]
+lc_object = lightcycle()
+
 while true
+' we're going to use a bitmap for the arena as well, to simplify collisions
+' if you update one of these, you need to update all of them!
+arena_size_x = 128
+arena_size_y = 128
+map_scale = 1
+dim arena[arena_size_y,arena_size_y]
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 player_direction = { 0, 2, 1, 3 }
+
 ' This is where in the static array the players are
 dim player_trail[4]
 dim player_trail3d[4]
 dim player_pos[4]
 
 dim sprrot[4]
+
 sprrot = {0, 90, 180, 270}
 camera_position = { 0.5, 3.5, -80.5 }
 camera_rotation = { 0, 0, 0 }
@@ -25,21 +35,6 @@ clippingRect = {{-255,-255},{255,255}}
 move_speed = 1
 camera_step = 2
 
-' the max line length for segments
-max_line_length = 64
-
-
-
-' we're going to use a bitmap for the arena as well, to simplify collisions
-' if you update one of these, you need to update all of them!
-arena_size_x = 128
-arena_size_y = 128
-map_scale = 1
-'arena_size_x = 64
-'arena_size_y = 64
-'map_scale = 0.5
-
-dim arena[arena_size_y,arena_size_y]
 
 for y = 1 to arena_size_y
   for x = 1 to arena_size_x
@@ -49,7 +44,7 @@ next
 
 
 start_distance = 16
-player_count = 1
+player_count = 2
 map_x = 64
 map_y = 64
 gridlines_x = 8
@@ -59,7 +54,7 @@ computer_only = { true, true, true, true }
 
 ' draw the floor here, so that it's globla
 ' use zig-zag to avoid large pen movements
-  dim floor_b[gridlines_y*2+3, 4]
+  dim floor_b[gridlines_y*2+2, 4]
   gridline_scale = arena_size_y / gridlines_y
   for gy = 0 to gridlines_y 
     if gy mod 1 = 0
@@ -82,15 +77,11 @@ computer_only = { true, true, true, true }
       floor_b[gy*2+2,4] = 0-arena_size_y/2
     endif
   next
-  ' this final MoveTo is to workaround the pen going outside of the co-ords
-      floor_b[gridlines_y*2+3, 1] = MoveTo
-      floor_b[gridlines_y*2+3, 2] = 0
-      floor_b[gridlines_y*2+3, 3] = 0
-      floor_b[gridlines_y*2+3, 4] = 0
+  
   ' draw vertical gridlines
   ' do these in a zig-zag too so that we don't 
   ' waste pen moves
-  dim floor_c[gridlines_y*2+3, 4]
+  dim floor_c[gridlines_y*2+2, 4]
   gridline_scale = arena_size_y / gridlines_y
   for gy = 0 to gridlines_y 
     if gy mod 1 = 0
@@ -113,11 +104,6 @@ computer_only = { true, true, true, true }
       floor_c[gy*2+2,2] = arena_size_y/2
     endif
   next
-  ' this final MoveTo is to workaround the pen going outside of the co-ords
-      floor_c[gridlines_y*2+3, 1] = MoveTo
-      floor_c[gridlines_y*2+3, 2] = 0
-      floor_c[gridlines_y*2+3, 3] = 0
-      floor_c[gridlines_y*2+3, 4] = 0
 
 player_pos = {1,1,1,1}
 for p = 1 to player_count
@@ -131,7 +117,6 @@ next
 game_is_playing = true
 
 ' set up the screen and the radar box
-lc_object = lightcycle()
 cycle_sprite = Lines3dSprite(lc_object)
 
 
@@ -148,7 +133,9 @@ while game_is_playing do
   active_player = active_player + 1
   active_player = active_player mod player_count
   ' grab the controls
+  on error call sprite_overflow
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+  on error call 0
   ' handle player input
 
   if controls[1, 1] < 0 then
@@ -218,13 +205,6 @@ while game_is_playing do
       endif
     endif
 
-    if abs(player_x[p, player_pos[p]] - player_x[p, player_pos[p]-1]) > max_line_length
-      require_update = 1
-    endif
-    if abs(player_y[p, player_pos[p]] - player_y[p, player_pos[p]-1]) > max_line_length
-      require_update = 1
-    endif
-    
     if require_update = 1
       player_pos[p] = player_pos[p] + 1
       player_x[p, player_pos[p]] = player_x[p, player_pos[p] - move_speed] 
@@ -253,8 +233,9 @@ while game_is_playing do
     ' process collisions
     if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
       game_is_playing = false
+    else
+      arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] = p
     endif
-    arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] = p
     endif
     
   next
@@ -326,12 +307,6 @@ while game_is_playing do
     y_angle = -80
   endif
 
-  ' updoate the floor matrix to avoid a vectrex32 long line drawing issue!
-      floor_b[gridlines_y*2+3, 2] = target_x
-      floor_b[gridlines_y*2+3, 4] = target_z
-      floor_c[gridlines_y*2+3, 2] = target_x
-      floor_c[gridlines_y*2+3, 4] = target_z
-
   'print y_angle
   'print z_angle
   'print camera_position
@@ -370,6 +345,10 @@ function collision(x, y)
     return false
 endfunction
 
+sub sprite_overflow
+  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," objects - time to reduce!"
+endsub
+
 sub drawscreen
   dim p
   ' draw!
@@ -405,8 +384,8 @@ sub drawscreen
 
   for p = 1 to player_count
     ' draw the 2D representation
-    call IntensitySprite(127)
     call ReturnToOriginSprite()
+    call IntensitySprite(127)
     dim foome[player_pos[p], 3]
     foome[1, 1] = MoveTo
     foome[1, 2] = (player_x[p, 1] / map_scale) + map_x
@@ -437,13 +416,13 @@ sub drawscreen
       ' up-left -> 2*4-5 = 3
       foome3d[seg*4-5, 1] = DrawTo
       foome3d[seg*4-5, 2] = player_x[p, seg - 1] - arena_size_x/2
-      foome3d[seg*4-5, 3] = 1
+      foome3d[seg*4-5, 3] = 2
       foome3d[seg*4-5, 4] = player_y[p, seg - 1] - arena_size_y/2
 
       ' up-right -> 2*3-4 = 4
       foome3d[seg*4-4, 1] = DrawTo
       foome3d[seg*4-4, 2] = player_x[p, seg] - arena_size_x/2
-      foome3d[seg*4-4, 3] = 1
+      foome3d[seg*4-4, 3] = 2
       foome3d[seg*4-4, 4] = player_y[p, seg] - arena_size_y/2
       
       ' down-right
