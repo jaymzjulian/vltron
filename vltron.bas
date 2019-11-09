@@ -7,7 +7,6 @@ dim x_move[4]
 dim y_move[4]
 lc_object = lightcycle()
 
-while true
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
 arena_size_x = 128
@@ -16,6 +15,7 @@ map_scale = 1
 dim arena[arena_size_y,arena_size_y]
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
+while true
 player_direction = { 0, 2, 1, 3 }
 
 ' This is where in the static array the players are
