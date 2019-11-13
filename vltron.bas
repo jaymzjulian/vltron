@@ -17,6 +17,9 @@ x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 while true
 player_direction = { 0, 2, 1, 3 }
+player_intensity = {127, 96, 64, 48 }
+floor_intensity = 48
+wall_intensity = 48
 
 ' This is where in the static array the players are
 dim player_trail[4]
@@ -35,6 +38,10 @@ clippingRect = {{-255,-255},{255,255}}
 move_speed = 1
 camera_step = 2
 
+' finger in the air as to how many sprites we'll display at most!
+dim all_sprites[256]
+dim all_origins[256]
+total_objects = 0
 
 for y = 1 to arena_size_y
   for x = 1 to arena_size_x
@@ -116,6 +123,10 @@ next
 
 game_is_playing = true
 
+' do thius to avoid an error condition
+call ClearScreen
+controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+
 ' set up the screen and the radar box
 dim cycle_sprite[4]
 for p = 1 to player_count
@@ -123,23 +134,50 @@ for p = 1 to player_count
 next
 
 
-call MoveSprite(-32, -32)
-call drawscreen
-call ReturnToOriginSprite()
-text = TextSprite("PRESS BUTTONS 1+2 FOR PLAY")
-text = TextSprite("PRESS BUTTONS 3+4 FOR AI")
-
+' do this here, since first draw may well always overflow, and we don't get
+' controls if that's the case!
 on error call sprite_overflow
 last_controls = WaitForFrame(JoystickNone, Controller1, JoystickNone)
 on error call 0
+
+call drawscreen
+call aps_rto()
+call aps(MoveSprite(-32, -32))
+text = aps(TextSprite("PRESS BUTTONS 1+2 FOR PLAY"))
+text = aps(TextSprite("PRESS BUTTONS 3+4 FOR AI"))
+
+' some state
 game_started = false
+overflowed = false
+new_overflow = false
 while game_is_playing do
   ' grab the controls
+  new_overflowed = false
   on error call sprite_overflow
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   on error call 0
-  ' handle player input
+  overflowed = new_overflowed
 
+  ' if we didn't overflow, ensure all sprites are enabled next frame
+  if overflowed = false
+    for sp = 1 to total_objects
+      call SpriteEnable(all_sprites[sp], true)
+    next
+  ' if we _did_ overflow, disable some sprites!
+  else
+    drawn_sprites = GetCompiledSpriteCount()
+    sprites_to_disable = (total_objects - drawn_sprites) 
+    start_sprite = drawn_sprites - sprites_to_disable
+
+    print "Disabling ",drawn_sprites,"most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+
+    ' FIXME: traverse back/forward to a return_to_origin_sprite - but how do we detect one?
+    for sp = start_sprite to drawn_sprites
+      call SpriteEnable(all_sprites[sp], false)
+    next
+  endif
+
+  ' handle player input
   if controls[1, 1] < 0 then
     camera_angle = camera_angle - 4
   elseif controls[1, 1] > 0 
@@ -239,7 +277,6 @@ while game_is_playing do
       arena[player_y[p, player_pos[p]], player_x[p, player_pos[p]]] = p
     endif
     endif
-    print p
     call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
     call SpriteSetRotation(cycle_sprite[p], 0, 0, sprrot[player_direction[p]+1])
   next
@@ -323,7 +360,10 @@ call ReturnToOriginSprite()
 call TextSprite("GAME OVER PRESS 2+3")
 done_waiting = false
 while done_waiting = false
+  ' this is a hack for now until sprite management gets better
+  on error call game_over_overflow
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+  on error call 0
   if controls[1, 4] = 1 and controls[1,5] = 1
     done_waiting = true
   endif
@@ -331,6 +371,12 @@ endwhile
 print "restart!"
 
 endwhile
+
+sub game_over_overflow
+  call ClearScreen
+  call ReturnToOriginSprite()
+  call TextSprite("GAME OVER PRESS 2+3")
+endsub
 
 function collision(x, y)
     if x = 0 or y = 0 or x = arena_size_x or y = arena_size_y
@@ -346,46 +392,68 @@ function collision(x, y)
 endfunction
 
 sub sprite_overflow
-  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," objects - time to reduce!"
+  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
+  new_overflowed = true
 endsub
+
+
+' append to our sprite list
+function aps(sprite)
+  total_objects = total_objects + 1
+  all_sprites[total_objects] = sprite
+  all_origins[total_objects] = false
+  return all_sprites[total_objects]
+endfunction
+
+' special one for return to origin, so we can seek it
+function aps_rto()
+  total_objects = total_objects + 1
+  all_sprites[total_objects] = ReturnToOriginSprite()
+  all_origins[total_objects] = true
+  return all_sprites[total_objects]
+endfunction
 
 sub drawscreen
   dim p
   ' draw!
+  '
+  ' Every object that is a sprite gets shoved into the total_objects array - we do this with the aps function
+  ' to defuce typing...
+  '
   call ClearScreen
+  total_objects = 0
   call cameraTranslate(camera_position)
-  call IntensitySprite(127)
-  'call ScaleSprite(64, 324 / 0.097)
-  call ScaleSprite(64, 162 / 0.097)
-  ' start from origin
-  call ReturnToOriginSprite()
+
+  call aps(IntensitySprite(127))
+  call aps(ScaleSprite(64, 162 / 0.097))
+  call aps_rto()
   ' draw an outline for the map
-  map_box = LinesSprite({ _
+  map_box = aps(LinesSprite({ _
       {MoveTo, map_x, map_y}, _
       {DrawTo, map_x + arena_size_x / map_scale, map_y }, _
       {DrawTo, map_x + arena_size_x / map_scale, map_y + arena_size_y / map_scale }, _
       {DrawTo, map_x , map_y + arena_size_y / map_scale }, _
-      {DrawTo, map_x, map_y } })
+      {DrawTo, map_x, map_y } }))
 
-  call IntensitySprite(96)
-  call ReturnToOriginSprite()
+  call aps(IntensitySprite(127))
+  call aps_rto()
 
   ' draw horizontal gridlines
   ' zig-zag these so we don't do long pen moves
-  call IntensitySprite(64)
-  call ReturnToOriginSprite()
-  sprb = Lines3dSprite(floor_b)
+  call aps(IntensitySprite(floor_intensity))
+  call aps_rto()
+  sprb = aps(Lines3dSprite(floor_b))
   call SpriteClip(sprb, clippingRect)
 
   ' and the vertical ones
-  call ReturnToOriginSprite()
-  sprc = Lines3dSprite(floor_c)
+  call aps_rto()
+  sprc = aps(Lines3dSprite(floor_c))
   call SpriteClip(sprc, clippingRect)
 
   for p = 1 to player_count
     ' draw the 2D representation
-    call ReturnToOriginSprite()
-    call IntensitySprite(127)
+    call aps_rto()
+    call aps(IntensitySprite(player_intensity[p]))
     dim foome[player_pos[p], 3]
     foome[1, 1] = MoveTo
     foome[1, 2] = (player_x[p, 1] / map_scale) + map_x
@@ -396,10 +464,10 @@ sub drawscreen
       foome[seg, 3] = (player_y[p, seg] / map_scale) + map_y
     next
     player_trail[p] = foome
-    call LinesSprite(player_trail[p])
+    call aps(LinesSprite(player_trail[p]))
 
     ' and the 3D representation
-    call ReturnToOriginSprite()
+    call aps_rto()
     'dim foome3d[player_pos[p]*4-2, 4]
     dim foome3d[player_pos[p]*4-3, 4]
     foome3d[1, 1] = MoveTo
@@ -435,9 +503,9 @@ sub drawscreen
     'foome3d[player_pos[p]*4-2, 2] = 0
     'foome3d[player_pos[p]*4-2, 3] = 0
     'foome3d[player_pos[p]*4-2, 4] = 0
-    print player_pos[p]," segments"
+    'print player_pos[p]," segments"
     player_trail3d[p] = foome3d
-    ptr = Lines3dSprite(player_trail3d[p])
+    ptr = aps(Lines3dSprite(player_trail3d[p]))
     call SpriteClip(ptr, clippingRect)
   next
 
@@ -445,10 +513,12 @@ sub drawscreen
   for p = 1 to player_count
     ' return to origin before doing 3d things
     ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
-    call ReturnToOriginSprite()
-    cycle_sprite[p] = Lines3dSprite(lc_object)
+    call aps(IntensitySprite(player_intensity[p]))
+    call aps_rto()
+    cycle_sprite[p] = aps(Lines3dSprite(lc_object))
     call SpriteClip(cycle_sprite[p], clippingRect)
   next
+  call aps(IntensitySprite(127))
 endsub
 
 
