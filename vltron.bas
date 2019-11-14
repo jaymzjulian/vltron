@@ -151,6 +151,9 @@ while game_is_playing do
   on error call sprite_overflow
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   on error call 0
+
+  ' at this point, overflowed is the _last_ frame overflow value, whereas
+  ' new_overflow is our _new_ frame overflow value.  
   overflowed = new_overflowed
 
   ' if we didn't overflow, ensure all sprites are enabled next frame
@@ -165,7 +168,7 @@ while game_is_playing do
     start_sprite = drawn_sprites - sprites_to_disable
     end_sprite = drawn_sprites
 
-    print "Disabling ",drawn_sprites," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+    'print "Disabling ",drawn_sprites," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
     
     if start_sprite < 1
       start_sprite = 1
@@ -346,10 +349,12 @@ while game_is_playing do
   lvx = camera_position[1] - target_x
   lvy = camera_position[2] - target_y
   lvz = camera_position[3] - target_z
+  mylen = sqrt(lvx*lvx+lvy*lvy*lvz*lvz)
 
   ' this returns in radians - convert to degrees first
   z_angle = atan2(-lvx, -lvz) * 57.2958
   'y_angle = atan2(-lvy, -lvz) * 57.2958
+  y_angle = asin(lvy/mylen) * 57.2958
   y_angle = 0
 
   ' clip the camera
@@ -408,7 +413,9 @@ function collision(x, y)
 endfunction
 
 sub sprite_overflow
-  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
+  if overflowed
+    print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
+  endif
   new_overflowed = true
 endsub
 
@@ -451,21 +458,6 @@ sub drawscreen
       {DrawTo, map_x , map_y + arena_size_y / map_scale }, _
       {DrawTo, map_x, map_y } }))
 
-  call aps(IntensitySprite(127))
-  call aps_rto()
-
-  ' draw horizontal gridlines
-  ' zig-zag these so we don't do long pen moves
-  call aps(IntensitySprite(floor_intensity))
-  call aps_rto()
-  sprb = aps(Lines3dSprite(floor_b))
-  call SpriteClip(sprb, clippingRect)
-
-  ' and the vertical ones
-  call aps_rto()
-  sprc = aps(Lines3dSprite(floor_c))
-  call SpriteClip(sprc, clippingRect)
-
   for p = 1 to player_count
     ' draw the 2D representation
     call aps_rto()
@@ -481,6 +473,8 @@ sub drawscreen
     next
     player_trail[p] = foome
     call aps(LinesSprite(player_trail[p]))
+
+  
 
     ' and the 3D representation
     call aps_rto()
@@ -524,7 +518,7 @@ sub drawscreen
     ptr = aps(Lines3dSprite(player_trail3d[p]))
     call SpriteClip(ptr, clippingRect)
   next
-
+  
   ' put these in a secod loop so they appear at the end of the display list...
   for p = 1 to player_count
     ' return to origin before doing 3d things
@@ -535,6 +529,20 @@ sub drawscreen
     call SpriteClip(cycle_sprite[p], clippingRect)
   next
   call aps(IntensitySprite(127))
+  
+  ' why is this after the other things?  so it gets destroyed earlier ;)
+  ' draw horizontal gridlines
+  ' zig-zag these so we don't do long pen moves
+  call aps(IntensitySprite(floor_intensity))
+  call aps_rto()
+  sprb = aps(Lines3dSprite(floor_b))
+  call SpriteClip(sprb, clippingRect)
+
+  ' and the vertical ones
+  call aps_rto()
+  sprc = aps(Lines3dSprite(floor_c))
+  call SpriteClip(sprc, clippingRect)
+
 endsub
 
 
