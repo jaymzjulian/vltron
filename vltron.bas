@@ -126,6 +126,7 @@ game_is_playing = true
 ' do thius to avoid an error condition
 call ClearScreen
 controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+las_controls = controls
 
 ' set up the screen and the radar box
 dim cycle_sprite[4]
@@ -133,12 +134,6 @@ for p = 1 to player_count
   cycle_sprite[p] = Lines3dSprite(lc_object)
 next
 
-
-' do this here, since first draw may well always overflow, and we don't get
-' controls if that's the case!
-on error call sprite_overflow
-last_controls = WaitForFrame(JoystickNone, Controller1, JoystickNone)
-on error call 0
 
 call drawscreen
 call aps_rto()
@@ -168,11 +163,32 @@ while game_is_playing do
     drawn_sprites = GetCompiledSpriteCount()
     sprites_to_disable = (total_objects - drawn_sprites) 
     start_sprite = drawn_sprites - sprites_to_disable
+    end_sprite = drawn_sprites
 
-    print "Disabling ",drawn_sprites,"most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+    print "Disabling ",drawn_sprites," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+    
+    if start_sprite < 1
+      start_sprite = 1
+    endif
+    if end_sprite > total_objects
+      end_sprite = total_objects
+    endif
+
+    ' we have to align to return_to_origins here - otherwise
+    ' we'll get pen drift.  To do this, we'll move _BOTH_ start sprite and
+    ' end sprite back, on the grounds that if we half drew something, we should give it a 
+    ' second chance to draw here!
+    while all_origins[start_sprite] = false  and start_sprite > 1
+      start_sprite = start_sprite - 1
+    endwhile
+    ' for end sprite, we want to stop one shy of the return to origin - we want
+    ' the RTO to be executed!
+    while all_origins[end_sprite+1] = false  and end_sprite > 1
+      end_sprite = end_sprite - 1
+    endwhile
 
     ' FIXME: traverse back/forward to a return_to_origin_sprite - but how do we detect one?
-    for sp = start_sprite to drawn_sprites
+    for sp = start_sprite to end_sprite
       call SpriteEnable(all_sprites[sp], false)
     next
   endif
