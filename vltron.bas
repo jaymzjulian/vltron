@@ -12,7 +12,7 @@ lc_object = lightcycle()
 arena_size_x = 128
 arena_size_y = 128
 map_scale = 1
-arena = ByteArray(arena_size_y*arena_size_x)
+arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
@@ -310,7 +310,7 @@ while game_is_playing do
     if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
       game_is_playing = false
     else
-      arena[player_y[p, player_pos[p]*arena_size_x+player_x[p, player_pos[p]]] = p
+      arena[player_y[p, player_pos[p]] * arena_size_x  + player_x[p, player_pos[p]]] = p
     endif
     endif
     call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
@@ -430,7 +430,7 @@ function collision(x, y)
       return true
     endif
     ' got line too long when tryhing to do both of these!
-    if arena[y*arena_size*x + x] != 0 
+    if arena[y*arena_size_x + x] != 0 
       'print "colliusion at ",x," ",y," due to trail ",arena[y,x]
       return true
     endif
