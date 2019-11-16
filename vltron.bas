@@ -29,7 +29,7 @@ dim player_pos[4]
 dim sprrot[4]
 
 sprrot = {0, 90, 180, 270}
-camera_position = { 0.5, 3.5, -80.5 }
+camera_position = { 0.5, 4.5, -80.5 }
 camera_rotation = { 0, 0, 0 }
 camera_length = 20
 camera_angle = -100
@@ -138,6 +138,7 @@ next
 call drawscreen
 call aps_rto()
 call aps(MoveSprite(-32, -32))
+call aps(IntensitySprite(127))
 text = aps(TextSprite("PRESS BUTTONS 1+2 FOR PLAY"))
 text = aps(TextSprite("PRESS BUTTONS 3+4 FOR AI"))
 
@@ -145,17 +146,28 @@ text = aps(TextSprite("PRESS BUTTONS 3+4 FOR AI"))
 game_started = false
 overflowed = false
 new_overflow = false
+last_begin = 0
 while game_is_playing do
+  require_redraw = false
+  lft = GetTickCount() - last_begin
   ' grab the controls
   new_overflowed = false
+  f = GetTickCount()
   on error call sprite_overflow
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   on error call 0
+  wait_for_frame_time = GetTickCount()-f
+  if wait_for_frame_time > 100
+    print "Drawscreen took ",wait_for_frame_time," lastov: ",overflowed," thisov: ",new_overflowed, " last: ",lft
+  endif
+  last_begin = GetTickCount()
 
   ' at this point, overflowed is the _last_ frame overflow value, whereas
   ' new_overflow is our _new_ frame overflow value.  
   overflowed = new_overflowed
+  
 
+  overflowed = false
   ' if we didn't overflow, ensure all sprites are enabled next frame
   if overflowed = false
     for sp = 1 to total_objects
@@ -195,6 +207,7 @@ while game_is_playing do
       call SpriteEnable(all_sprites[sp], false)
     next
   endif
+
 
   ' handle player input
   if controls[1, 1] < 0 then
@@ -268,6 +281,7 @@ while game_is_playing do
       player_pos[p] = player_pos[p] + 1
       player_x[p, player_pos[p]] = player_x[p, player_pos[p] - move_speed] 
       player_y[p, player_pos[p]] = player_y[p, player_pos[p] - move_speed] 
+      require_redraw = true
       call drawscreen
     endif
 
@@ -275,19 +289,21 @@ while game_is_playing do
     player_x[p, player_pos[p]] = player_x[p, player_pos[p]] + x_move[player_direction[p]+1]
     player_y[p, player_pos[p]] = player_y[p, player_pos[p]] + y_move[player_direction[p]+1]
 
-    ' update the 2d trail
-    player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] / map_scale + map_x
-    player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] / map_scale + map_y
+    if require_redraw = false
+      ' update the 2d trail
+      player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] / map_scale + map_x
+      player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] / map_scale + map_y
 
-    ' update the 3d trail
-    player_trail3d[p][player_pos[p]*4-6, 2] = player_x[p, player_pos[p]] - arena_size_x/2
-    player_trail3d[p][player_pos[p]*4-6, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+      ' update the 3d trail
+      player_trail3d[p][player_pos[p]*4-6, 2] = player_x[p, player_pos[p]] - arena_size_x/2
+      player_trail3d[p][player_pos[p]*4-6, 4] = player_y[p, player_pos[p]] - arena_size_y/2
 
-    player_trail3d[p][player_pos[p]*4-4, 2] = player_x[p, player_pos[p]] - arena_size_x/2
-    player_trail3d[p][player_pos[p]*4-4, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+      player_trail3d[p][player_pos[p]*4-4, 2] = player_x[p, player_pos[p]] - arena_size_x/2
+      player_trail3d[p][player_pos[p]*4-4, 4] = player_y[p, player_pos[p]] - arena_size_y/2
 
-    player_trail3d[p][player_pos[p]*4-3, 2] = player_x[p, player_pos[p]] - arena_size_x/2
-    player_trail3d[p][player_pos[p]*4-3, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+      player_trail3d[p][player_pos[p]*4-3, 2] = player_x[p, player_pos[p]] - arena_size_x/2
+      player_trail3d[p][player_pos[p]*4-3, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+    endif
   
     ' process collisions
     if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
@@ -299,9 +315,15 @@ while game_is_playing do
     call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
     call SpriteSetRotation(cycle_sprite[p], 0, 0, sprrot[player_direction[p]+1])
   next
+
+  ' if require redraw, do it now
+  if require_redraw and game_started 
+    call drawscreen
+  endif
   
   last_controls = controls
 
+  ' if we're not playing yet, wait until we are!
   if game_started = false
     if controls[1, 4] = 1 and controls[1,3] = 1
       computer_only[1] = false
@@ -378,6 +400,7 @@ endwhile
 
 print "hit game over"
 call ReturnToOriginSprite()
+call IntensitySprite(127)
 call TextSprite("GAME OVER PRESS 2+3")
 done_waiting = false
 while done_waiting = false
@@ -396,6 +419,7 @@ endwhile
 sub game_over_overflow
   call ClearScreen
   call ReturnToOriginSprite()
+  call IntensitySprite(127)
   call TextSprite("GAME OVER PRESS 2+3")
 endsub
 
@@ -413,9 +437,9 @@ function collision(x, y)
 endfunction
 
 sub sprite_overflow
-  if overflowed
-    print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
-  endif
+  'if overflowed
+  '  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
+  'endif
   new_overflowed = true
 endsub
 
