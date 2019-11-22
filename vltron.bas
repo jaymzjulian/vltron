@@ -14,6 +14,8 @@ arena_size_y = 128
 map_scale = 1
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
+first_person = false
+
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 while true
@@ -29,7 +31,7 @@ dim player_pos[4]
 
 dim sprrot[4]
 
-sprrot = {0, 90, 180, 270}
+sprrot = {0, 270, 180, 90}
 camera_position = { 0.5, 4.5, -80.5 }
 camera_rotation = { 0, 0, 0 }
 camera_length = 20
@@ -148,6 +150,8 @@ game_started = false
 overflowed = false
 new_overflow = false
 last_begin = 0
+last_rotation = 0
+max_rotation = 15
 while game_is_playing do
   require_redraw = false
   lft = GetTickCount() - last_begin
@@ -234,7 +238,8 @@ while game_is_playing do
       ' of our three angles, find which one will kill us the least quickly
       directions_to_test = { player_direction[p], (player_direction[p]+1) mod 4, (player_direction[p]+3) mod 4} 
 
-      if (rand() mod 8 = 1)
+      'if (rand() mod 8 = 1)
+      if (rand() mod 4 = 1)
         best_dir = player_direction[p]
         best_len = 0
 
@@ -295,15 +300,14 @@ while game_is_playing do
       player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] / map_scale + map_x
       player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] / map_scale + map_y
 
-      ' update the 3d trail
-      player_trail3d[p][player_pos[p]*4-6, 2] = player_x[p, player_pos[p]] - arena_size_x/2
-      player_trail3d[p][player_pos[p]*4-6, 4] = player_y[p, player_pos[p]] - arena_size_y/2
-
-      player_trail3d[p][player_pos[p]*4-4, 2] = player_x[p, player_pos[p]] - arena_size_x/2
-      player_trail3d[p][player_pos[p]*4-4, 4] = player_y[p, player_pos[p]] - arena_size_y/2
-
-      player_trail3d[p][player_pos[p]*4-3, 2] = player_x[p, player_pos[p]] - arena_size_x/2
-      player_trail3d[p][player_pos[p]*4-3, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+      if first_person = false or p != 1
+        ' update the 3d trail
+        player_trail3d[p][(player_pos[p]-2)*4+1, 2] = player_x[p, player_pos[p]] - arena_size_x/2
+        player_trail3d[p][(player_pos[p]-2)*4+1, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+  
+        player_trail3d[p][(player_pos[p]-2)*4+4, 2] = player_x[p, player_pos[p]] - arena_size_x/2
+        player_trail3d[p][(player_pos[p]-2)*4+4, 4] = player_y[p, player_pos[p]] - arena_size_y/2
+      endif
     endif
   
     ' process collisions
@@ -313,8 +317,10 @@ while game_is_playing do
       arena[player_y[p, player_pos[p]] * arena_size_x  + player_x[p, player_pos[p]]] = p
     endif
     endif
-    call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
-    call SpriteSetRotation(cycle_sprite[p], 0, 0, sprrot[player_direction[p]+1])
+    if first_person = false or p != 1
+      call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
+      call SpriteSetRotation(cycle_sprite[p], 0, 0, sprrot[player_direction[p]+1])
+    endif
   next
 
   ' if require redraw, do it now
@@ -338,63 +344,91 @@ while game_is_playing do
     endif
   endif
 
-  ' look at the player
-  target_x = player_x[1, player_pos[1]] - arena_size_x/2
-  target_y = 1
-  target_z = player_y[1, player_pos[1]] - arena_size_y/2
-  ' degrees to radians
-  angle = ((sprrot[player_direction[1]+1]+camera_angle)mod 360)  / 57.2958
-  sa = sin(angle)
-  ca = cos(angle)
-
-  wanted_x = (target_x - (ca*camera_length - sa*camera_length )) + 0.5
-  wanted_z = (target_z + (sa*camera_length + ca*camera_length )) + 0.5
-  if abs(camera_position[1] - wanted_x) < camera_step
-    camera_position[1] = wanted_x
-  else
-    if camera_position[1] > wanted_x
-      camera_position[1] = camera_position[1] - camera_step
-    else
-      camera_position[1] = camera_position[1] + camera_step
+  if first_person
+    target_rotation = 360-sprrot[player_direction[1]+1]
+    if target_rotation != last_rotation
+      ' we need to work out which direction to turn from last_rotation to hit
+      ' target_rotation soonest.  We normalize this to -180 to 180
+      rot_dif = target_rotation - last_rotation
+      while rot_dif > 180
+        rot_dif = rot_dif - 360
+      endwhile
+      while rot_dif < -180
+        rot_dif = rot_dif + 360
+      endwhile
+      if rot_dif < 0
+        last_rotation = last_rotation - max_rotation
+      endif
+      if rot_dif > 0
+        last_rotation = last_rotation + max_rotation
+      endif
     endif
-  endif
-  if abs(camera_position[3] - wanted_z) < camera_step
-    camera_position[3] = wanted_z
+      
+
+    p = 1
+    camera_position[1] = player_x[p, player_pos[p]] - arena_size_x/2
+    camera_position[2] = 1
+    camera_position[3] = player_y[p, player_pos[p]] - arena_size_y/2
+    call cameraSetRotation(0, 0, last_rotation)
   else
-    if camera_position[3] > wanted_z
-      camera_position[3] = camera_position[3] - camera_step
+    ' look at the player
+    target_x = player_x[1, player_pos[1]] - arena_size_x/2
+    target_y = 1
+    target_z = player_y[1, player_pos[1]] - arena_size_y/2
+    ' degrees to radians
+    angle = ((sprrot[player_direction[1]+1]+camera_angle)mod 360)  / 57.2958
+    sa = sin(angle)
+    ca = cos(angle)
+
+    wanted_x = (target_x - (ca*camera_length - sa*camera_length )) + 0.5
+    wanted_z = (target_z + (sa*camera_length + ca*camera_length )) + 0.5
+    if abs(camera_position[1] - wanted_x) < camera_step
+      camera_position[1] = wanted_x
     else
-      camera_position[3] = camera_position[3] + camera_step
+      if camera_position[1] > wanted_x
+        camera_position[1] = camera_position[1] - camera_step
+      else
+        camera_position[1] = camera_position[1] + camera_step
+      endif
     endif
+    if abs(camera_position[3] - wanted_z) < camera_step
+      camera_position[3] = wanted_z
+    else
+      if camera_position[3] > wanted_z
+        camera_position[3] = camera_position[3] - camera_step
+      else
+        camera_position[3] = camera_position[3] + camera_step
+      endif
+    endif
+    
+    ' do this _after_ having moved the camear
+    lvx = camera_position[1] - target_x
+    lvy = camera_position[2] - target_y
+    lvz = camera_position[3] - target_z
+    mylen = sqrt(lvx*lvx+lvy*lvy*lvz*lvz)
+
+    ' this returns in radians - convert to degrees first
+    z_angle = atan2(-lvx, -lvz) * 57.2958
+    'y_angle = atan2(-lvy, -lvz) * 57.2958
+    y_angle = asin(lvy/mylen) * 57.2958
+    y_angle = 0
+
+    ' clip the camera
+    if y_angle > 80
+      y_angle = 80
+    endif
+    if y_angle < -80
+      y_angle = -80
+    endif
+
+    'print y_angle
+    'print z_angle
+    'print camera_position
+    'print -zangle
+    'call SpritePrintVectors(player_trail3d[1])
+
+    call cameraSetRotation(y_angle, 0, -z_angle)
   endif
-  
-  ' do this _after_ having moved the camear
-  lvx = camera_position[1] - target_x
-  lvy = camera_position[2] - target_y
-  lvz = camera_position[3] - target_z
-  mylen = sqrt(lvx*lvx+lvy*lvy*lvz*lvz)
-
-  ' this returns in radians - convert to degrees first
-  z_angle = atan2(-lvx, -lvz) * 57.2958
-  'y_angle = atan2(-lvy, -lvz) * 57.2958
-  y_angle = asin(lvy/mylen) * 57.2958
-  y_angle = 0
-
-  ' clip the camera
-  if y_angle > 80
-    y_angle = 80
-  endif
-  if y_angle < -80
-    y_angle = -80
-  endif
-
-  'print y_angle
-  'print z_angle
-  'print camera_position
-  'print -zangle
-  'call SpritePrintVectors(player_trail3d[1])
-
-  call cameraSetRotation(y_angle, 0, -z_angle)
 
 
 endwhile
@@ -439,7 +473,7 @@ endfunction
 
 sub sprite_overflow
   'if overflowed
-  '  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
+    print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
   'endif
   new_overflowed = true
 endsub
@@ -499,46 +533,40 @@ sub drawscreen
     player_trail[p] = foome
     call aps(LinesSprite(player_trail[p]))
 
-  
-
     ' and the 3D representation
     call aps_rto()
     'dim foome3d[player_pos[p]*4-2, 4]
-    dim foome3d[player_pos[p]*4-3, 4]
+    dim foome3d[(player_pos[p]-1)*4, 4]
+    ' start drawing at bottom right
     foome3d[1, 1] = MoveTo
-    foome3d[1, 2] = player_x[p, 1]  - arena_size_x/2
+    foome3d[1, 2] = player_x[p, 2] - arena_size_x/2
     foome3d[1, 3] = 0
-    foome3d[1, 4] = player_y[p, 1] - arena_size_y/2
-    for seg = 2 to player_pos[p] 
-      ' down-right -> 2*4-6 = 2
-      foome3d[seg*4-6, 1] = DrawTo
-      foome3d[seg*4-6, 2] = player_x[p, seg] - arena_size_x/2
-      foome3d[seg*4-6, 3] = 0
-      foome3d[seg*4-6, 4] = player_y[p, seg] - arena_size_y/2
-      
-      ' up-left -> 2*4-5 = 3
-      foome3d[seg*4-5, 1] = DrawTo
-      foome3d[seg*4-5, 2] = player_x[p, seg - 1] - arena_size_x/2
-      foome3d[seg*4-5, 3] = 2
-      foome3d[seg*4-5, 4] = player_y[p, seg - 1] - arena_size_y/2
+    foome3d[1, 4] = player_y[p, 2] - arena_size_y/2
 
-      ' up-right -> 2*3-4 = 4
-      foome3d[seg*4-4, 1] = DrawTo
-      foome3d[seg*4-4, 2] = player_x[p, seg] - arena_size_x/2
-      foome3d[seg*4-4, 3] = 2
-      foome3d[seg*4-4, 4] = player_y[p, seg] - arena_size_y/2
+    eor_thing = 2
+    for seg = 1 to (player_pos[p] - 1)
+      ' to bottom left 
+      foome3d[(seg-1)*4+1, 1] = DrawTo
+      foome3d[(seg-1)*4+1, 2] = player_x[p, seg]  - arena_size_x/2
+      foome3d[(seg-1)*4+1, 3] = 0 
+      foome3d[(seg-1)*4+1, 4] = player_y[p, seg] - arena_size_y/2
+
+       ' to up left 
+      foome3d[(seg-1)*4+3, 1] = DrawTo
+      foome3d[(seg-1)*4+3, 2] = player_x[p, seg] - arena_size_x/2
+      foome3d[(seg-1)*4+3, 3] = 2 
+      foome3d[(seg-1)*4+3, 4] = player_y[p, seg] - arena_size_y/2
       
-      ' down-right
-      foome3d[seg*4-3, 1] = DrawTo
-      foome3d[seg*4-3, 2] = player_x[p, seg] - arena_size_x/2
-      foome3d[seg*4-3, 3] = 0
-      foome3d[seg*4-3, 4] = player_y[p, seg] - arena_size_y/2
+      ' to up right 
+      foome3d[(seg-1)*4+4, 1] = DrawTo
+      foome3d[(seg-1)*4+4, 2] = player_x[p, (seg+1)] - arena_size_x/2
+      foome3d[(seg-1)*4+4, 3] = 2
+      foome3d[(seg-1)*4+4, 4] = player_y[p, (seg+1)] - arena_size_y/2
+
     next
-    'foome3d[player_pos[p]*4-2, 1] = MoveTo
-    'foome3d[player_pos[p]*4-2, 2] = 0
-    'foome3d[player_pos[p]*4-2, 3] = 0
-    'foome3d[player_pos[p]*4-2, 4] = 0
-    'print player_pos[p]," segments"
+    ' make the start of the trail a move :)
+    foome3d[1, 1] = MoveTo
+
     player_trail3d[p] = foome3d
     ptr = aps(Lines3dSprite(player_trail3d[p]))
     call SpriteClip(ptr, clippingRect)
@@ -546,12 +574,14 @@ sub drawscreen
   
   ' put these in a secod loop so they appear at the end of the display list...
   for p = 1 to player_count
-    ' return to origin before doing 3d things
-    ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
-    call aps(IntensitySprite(player_intensity[p]))
-    call aps_rto()
-    cycle_sprite[p] = aps(Lines3dSprite(lc_object))
-    call SpriteClip(cycle_sprite[p], clippingRect)
+    if first_person = false or p != 1
+      ' return to origin before doing 3d things
+      ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
+      call aps_rto()
+      call aps(IntensitySprite(player_intensity[p]/2))
+      cycle_sprite[p] = aps(Lines3dSprite(lc_object))
+      call SpriteClip(cycle_sprite[p], clippingRect)
+    endif
   next
   call aps(IntensitySprite(127))
   
@@ -573,173 +603,115 @@ endsub
 
 function lightcycle()
 mysprite={ _
-  {DrawTo, 0.219073,-0.203540,1.200940} , _
-  {DrawTo, 0.219073,0.437060,0.762240} , _
-  {DrawTo, 0.219073,0.139332,0.509412} , _
-  {DrawTo, 0.219073,0.519756,-1.089104} , _
-  {DrawTo, 0.219667,-0.621360,-1.089532} , _
-  {DrawTo, 0.219073,-0.621424,0.658632} , _
-  {DrawTo, 0.219073,0.139332,0.509412} , _
-  {DrawTo, 0.219073,-0.621424,0.658632} , _
-  {DrawTo, 0.219073,-0.203540,1.200940} , _
-  {DrawTo, 0.219073,-0.621424,0.658632} , _
-  {DrawTo, 0.219073,-0.623836,1.413196} , _
-  {DrawTo, 0.219360,-0.460176,1.412268} , _
-  {DrawTo, 0.219073,-0.203540,1.200940} , _
-  {DrawTo, 0.219073,0.064276,1.411732} , _
-  {DrawTo, 0.219073,0.437060,1.411732} , _
-  {DrawTo, 0.219073,0.064276,1.411732} , _
-  {DrawTo, -0.218156,0.064276,1.411732} , _
-  {DrawTo, -0.218156,0.437060,1.411732} , _
-  {DrawTo, 0.219073,0.437060,1.411732} , _
-  {DrawTo, -0.155868,0.449016,1.253128} , _
-  {DrawTo, -0.155868,0.821492,-0.075852} , _
-  {DrawTo, 0.157152,0.822792,-0.075088} , _
-  {DrawTo, 0.157380,0.677820,-0.075155} , _
-  {DrawTo, 0.157380,0.322298,1.177344} , _
-  {DrawTo, -0.155639,0.320990,1.176592} , _
-  {DrawTo, -0.155638,0.676444,-0.075908} , _
-  {DrawTo, -0.155868,0.821492,-0.075852} , _
-  {DrawTo, -0.155868,0.449016,1.253128} , _
-  {DrawTo, -0.155639,0.320990,1.176592} , _
-  {DrawTo, -0.155868,0.449016,1.253128} , _
-  {DrawTo, 0.157152,0.450316,1.253892} , _
-  {DrawTo, 0.157152,0.822792,-0.075088} , _
-  {DrawTo, 0.157152,0.450316,1.253892} , _
-  {DrawTo, 0.157380,0.322298,1.177344} , _
-  {DrawTo, 0.157152,0.450316,1.253892} , _
-  {MoveTo,0.001113,0.395961,1.414464},   {DrawTo, 0.120608,0.226074,1.414464} , _
-  {DrawTo, 0.120608,-0.197485,1.815264} , _
-  {DrawTo, 0.001113,-0.196490,2.000000} , _
-  {DrawTo, -0.119690,-0.197485,1.815264} , _
-  {DrawTo, -0.119690,0.226074,1.414464} , _
-  {DrawTo, 0.001113,0.395961,1.414464} , _
-  {DrawTo, 0.001113,-0.196490,2.000000} , _
-  {DrawTo, 0.001113,0.395961,1.414464} , _
-  {DrawTo, -0.218156,0.064276,1.411732} , _
-  {DrawTo, 0.219073,0.064276,1.411732} , _
-  {DrawTo, 0.219073,-0.203540,1.200940} , _
-  {DrawTo, 0.219360,-0.460176,1.412268} , _
-  {DrawTo, 0.219073,-0.623836,1.413196} , _
-  {DrawTo, -0.218156,-0.623836,1.412228} , _
-  {DrawTo, -0.217868,-0.460068,1.412376} , _
-  {DrawTo, 0.219360,-0.460176,1.412268} , _
-  {DrawTo, -0.217868,-0.460068,1.412376} , _
-  {DrawTo, -0.218156,-0.623836,1.412228} , _
-  {DrawTo, -0.218156,-0.621424,0.658632} , _
-  {DrawTo, -0.218156,0.139332,0.509412} , _
-  {DrawTo, -0.218156,0.437060,0.762240} , _
-  {DrawTo, -0.218156,-0.203755,1.200940} , _
-  {DrawTo, -0.218156,0.437060,0.762240} , _
-  {MoveTo,-0.270298,0.466176,1.024284},   {DrawTo, -0.270298,0.741892,-0.104224} , _
-  {DrawTo, -0.270298,0.466176,1.024284} , _
-  {DrawTo, -0.270202,-0.040552,0.420544} , _
-  {DrawTo, -0.270298,0.331591,-1.672704} , _
-  {DrawTo, 0.267955,0.331591,-1.672704} , _
-  {DrawTo, 0.267955,0.741892,-0.104224} , _
-  {DrawTo, 0.271119,-0.040444,0.420440} , _
-  {DrawTo, 0.267955,0.466176,1.024608} , _
-  {DrawTo, -0.270298,0.466176,1.024284} , _
-  {MoveTo,0.267955,0.466176,1.024608},   {DrawTo, 0.267955,0.741892,-0.104224} , _
-  {DrawTo, 0.267955,0.466176,1.024608} , _
-  {MoveTo,0.081204,-0.060096,1.414464},   {DrawTo, 0.081204,-0.210162,1.282972} , _
-  {DrawTo, 0.081204,-0.338960,1.414464} , _
-  {DrawTo, 0.081204,-0.204791,1.540588} , _
-  {DrawTo, 0.081204,-0.060096,1.414464} , _
-  {DrawTo, -0.080287,-0.204791,1.540588} , _
-  {DrawTo, -0.080287,-0.338960,1.414464} , _
-  {DrawTo, -0.080287,-0.215533,1.282972} , _
-  {DrawTo, -0.080287,-0.060096,1.414464} , _
-  {DrawTo, -0.218156,-0.203755,1.200940} , _
-  {DrawTo, -0.218156,0.064276,1.411732} , _
-  {MoveTo,-0.218156,-0.203755,1.200940},   {DrawTo, -0.218156,-0.621424,0.658632} , _
-  {DrawTo, -0.218156,-0.203755,1.200940} , _
-  {DrawTo, 0.219073,-0.203540,1.200940} , _
-  {DrawTo, -0.218156,-0.203755,1.200940} , _
-  {DrawTo, -0.217868,-0.460068,1.412376} , _
-  {DrawTo, -0.218156,-0.203755,1.200940} , _
-  {MoveTo,-0.119690,-0.213598,0.992176},   {DrawTo, -0.119690,-0.625128,1.414464} , _
-  {DrawTo, -0.119690,-0.197485,1.815264} , _
-  {DrawTo, 0.001113,-0.196490,2.000000} , _
-  {DrawTo, 0.001113,-0.795016,1.414464} , _
-  {DrawTo, 0.001113,-0.219112,0.791336} , _
-  {DrawTo, -0.119690,-0.213598,0.992176} , _
-  {MoveTo,0.001113,-0.219112,0.791336},   {DrawTo, 0.001113,-0.795016,1.414464} , _
-  {DrawTo, -0.119690,-0.625128,1.414464} , _
-  {DrawTo, 0.001113,-0.795016,1.414464} , _
-  {DrawTo, 0.001113,-0.196490,2.000000} , _
-  {DrawTo, 0.120608,-0.197485,1.815264} , _
-  {DrawTo, 0.120608,-0.625128,1.414464} , _
-  {DrawTo, 0.001113,-0.795016,1.414464} , _
-  {DrawTo, 0.120608,-0.625128,1.414464} , _
-  {DrawTo, 0.120608,-0.218970,0.992176} , _
-  {DrawTo, 0.001113,-0.219112,0.791336} , _
-  {MoveTo,0.271119,-0.040444,0.420440},   {DrawTo, 0.267955,0.741892,-0.104224} , _
-  {DrawTo, 0.267955,0.331591,-1.672704} , _
-  {DrawTo, 0.271119,-0.040090,-0.828344} , _
-  {DrawTo, 0.271119,-0.040444,0.420440} , _
-  {MoveTo,-0.218156,0.139332,0.509412},   {DrawTo, -0.218156,-0.621424,0.658632} , _
-  {MoveTo,0.004621,-0.346884,-0.723072},   {DrawTo, 0.004621,0.395993,-1.348492} , _
-  {DrawTo, 0.004621,-0.346884,-0.723072} , _
-  {DrawTo, 0.004621,-0.822792,-1.536196} , _
-  {DrawTo, -0.429884,-0.665716,-1.536196} , _
-  {DrawTo, 0.004621,-0.822792,-1.536196} , _
-  {DrawTo, 0.430804,-0.665716,-1.536196} , _
-  {DrawTo, 0.004621,-0.822792,-1.536196} , _
-  {DrawTo, 0.004621,-0.346884,-0.723072} , _
-  {DrawTo, -0.429884,-0.341574,-0.919252} , _
-  {DrawTo, 0.004621,-0.346884,-0.723072} , _
-  {DrawTo, 0.430804,-0.341574,-0.919252} , _
-  {DrawTo, 0.430804,-0.665716,-1.536196} , _
-  {DrawTo, 0.430804,-0.057417,-1.811660} , _
-  {DrawTo, 0.430804,0.238918,-1.348492} , _
-  {DrawTo, 0.430804,-0.341574,-0.919252} , _
-  {DrawTo, 0.004621,-0.346884,-0.723072} , _
-  {MoveTo,-0.429884,-0.341574,-0.919252},   {DrawTo, -0.429884,0.238918,-1.348492} , _
-  {DrawTo, 0.004621,0.395993,-1.348492} , _
-  {DrawTo, 0.430804,0.238918,-1.348492} , _
-  {DrawTo, 0.004621,0.395993,-1.348492} , _
-  {DrawTo, 0.004621,-0.057336,-2.000000} , _
-  {DrawTo, 0.004621,-0.822792,-1.536196} , _
-  {DrawTo, 0.004621,-0.057336,-2.000000} , _
-  {DrawTo, 0.430804,-0.057417,-1.811660} , _
-  {DrawTo, 0.004621,-0.057336,-2.000000} , _
-  {DrawTo, 0.004621,0.395993,-1.348492} , _
-  {DrawTo, -0.429884,0.238918,-1.348492} , _
-  {DrawTo, -0.429884,-0.057417,-1.811660} , _
-  {DrawTo, -0.429884,-0.665716,-1.536196} , _
-  {DrawTo, -0.429884,-0.341574,-0.919252} , _
-  {MoveTo,-0.227876,-0.205074,-1.221820},   {DrawTo, -0.227876,-0.338926,-1.348492} , _
-  {DrawTo, -0.227876,-0.203006,-1.477088} , _
-  {DrawTo, -0.227876,-0.060064,-1.348492} , _
-  {DrawTo, -0.227876,-0.205074,-1.221820} , _
-  {MoveTo,-0.218156,-0.621424,-1.089104},   {DrawTo, -0.217187,0.519756,-1.089104} , _
-  {DrawTo, -0.218156,0.139332,0.509412} , _
-  {MoveTo,-0.270298,0.741892,-0.104224},   {DrawTo, -0.270298,0.331591,-1.672704} , _
-  {DrawTo, -0.270298,0.741892,-0.104224} , _
-  {DrawTo, 0.267955,0.741892,-0.104224} , _
-  {DrawTo, -0.270298,0.741892,-0.104224} , _
-  {MoveTo,-0.155638,0.499192,-1.181368},   {DrawTo, -0.155638,0.326386,-1.643784} , _
-  {DrawTo, -0.155868,0.351552,-1.785140} , _
-  {DrawTo, -0.155638,0.326386,-1.643784} , _
-  {DrawTo, 0.157380,0.326374,-1.643804} , _
-  {DrawTo, 0.157152,0.352851,-1.784376} , _
-  {DrawTo, -0.155868,0.351552,-1.785140} , _
-  {DrawTo, 0.157152,0.352851,-1.784376} , _
-  {DrawTo, 0.157380,0.326374,-1.643804} , _
-  {DrawTo, 0.157380,0.500500,-1.180616} , _
-  {DrawTo, 0.157152,0.639460,-1.248664} , _
-  {DrawTo, 0.157152,0.352851,-1.784376} , _
-  {DrawTo, 0.157152,0.639460,-1.248664} , _
-  {DrawTo, -0.155868,0.638164,-1.249428} , _
-  {DrawTo, -0.155868,0.351552,-1.785140} , _
-  {DrawTo, -0.155868,0.638164,-1.249428} , _
-  {DrawTo, -0.155638,0.499192,-1.181368} , _
-  {MoveTo,0.228794,-0.060064,-1.348492},   {DrawTo, 0.228794,-0.203006,-1.477088} , _
-  {DrawTo, 0.228794,-0.338926,-1.348492} , _
-  {DrawTo, 0.228794,-0.205074,-1.221820} , _
-  {DrawTo, 0.228794,-0.060064,-1.348492} , _
-  {MoveTo,0.004621,-0.057336,-2.000000},   {DrawTo, -0.429884,-0.057417,-1.811660} , _
-  {DrawTo, 0.004621,-0.057336,-2.000000} }
+  {MoveTo,-0.284963,-0.242065,-1.085209},   {DrawTo, -0.284963,-0.550938,-1.394082} , _
+  {DrawTo, -0.452639,-0.242065,-1.394082} , _
+  {DrawTo, -0.284963,-0.242065,-1.702956} , _
+  {DrawTo, -0.284963,0.066808,-1.394082} , _
+  {DrawTo, -0.452639,-0.242065,-1.394082} , _
+  {DrawTo, -0.284963,-0.242065,-1.085209} , _
+  {DrawTo, -0.284963,0.066808,-1.394082} , _
+  {MoveTo,-0.284963,0.319254,-1.634925},   {DrawTo, -0.284963,-0.001222,-1.955402} , _
+  {DrawTo, 0.284963,-0.001222,-1.955402} , _
+  {DrawTo, 0.284963,0.319254,-1.634925} , _
+  {DrawTo, 0.284963,0.319254,-1.153240} , _
+  {DrawTo, 0.284963,-0.001222,-0.832763} , _
+  {DrawTo, 0.284963,-0.482907,-0.832763} , _
+  {DrawTo, 0.284963,-0.803384,-1.153240} , _
+  {DrawTo, 0.284963,-0.803384,-1.634925} , _
+  {DrawTo, 0.284963,-0.482907,-1.955402} , _
+  {DrawTo, 0.284963,-0.001222,-1.955402} , _
+  {MoveTo,0.284963,-0.242065,-1.702956},   {DrawTo, 0.284963,-0.550938,-1.394082} , _
+  {DrawTo, 0.452639,-0.242065,-1.394082} , _
+  {DrawTo, 0.284963,-0.242065,-1.702956} , _
+  {DrawTo, 0.284963,0.066808,-1.394082} , _
+  {DrawTo, 0.452639,-0.242065,-1.394082} , _
+  {DrawTo, 0.284963,-0.242065,-1.085209} , _
+  {DrawTo, 0.284963,0.066808,-1.394082} , _
+  {MoveTo,0.487614,0.080097,-1.087675},   {DrawTo, -0.487614,0.080097,-1.087675} , _
+  {DrawTo, -0.366132,-0.625656,-0.782431} , _
+  {DrawTo, -0.267016,-0.617817,-0.007839} , _
+  {DrawTo, 0.267016,-0.617817,-0.007839} , _
+  {DrawTo, 0.366132,-0.625656,-0.782431} , _
+  {DrawTo, 0.487614,0.080097,-1.087675} , _
+  {DrawTo, 0.147834,0.360783,-1.785661} , _
+  {DrawTo, 0.267016,0.633494,-1.244920} , _
+  {DrawTo, 0.267016,0.860819,-0.078388} , _
+  {DrawTo, 0.321604,0.578623,0.798109} , _
+  {DrawTo, 0.161512,-0.258833,1.702149} , _
+  {DrawTo, 0.161512,-0.496347,1.471528} , _
+  {DrawTo, 0.321604,-0.258690,0.690755} , _
+  {DrawTo, 0.267016,-0.617817,-0.007839} , _
+  {MoveTo,-0.267016,-0.617817,-0.007839},   {DrawTo, -0.321604,-0.258690,0.690755} , _
+  {DrawTo, -0.161512,-0.496347,1.471528} , _
+  {DrawTo, 0.161512,-0.496347,1.471528} , _
+  {MoveTo,0.217050,-0.415902,1.448602},   {DrawTo, 0.217050,-0.271424,1.593080} , _
+  {DrawTo, 0.344764,-0.271424,1.448602} , _
+  {DrawTo, 0.217050,-0.415902,1.448602} , _
+  {DrawTo, 0.217050,-0.271424,1.304125} , _
+  {DrawTo, 0.344764,-0.271424,1.448602} , _
+  {DrawTo, 0.217050,-0.126946,1.448602} , _
+  {DrawTo, 0.217050,-0.271424,1.304125} , _
+  {MoveTo,0.217050,-0.271424,1.593080},   {DrawTo, 0.217050,-0.126946,1.448602} , _
+  {MoveTo,-0.217050,-0.126946,1.448602},   {DrawTo, -0.217050,-0.271424,1.593080} , _
+  {DrawTo, -0.344764,-0.271424,1.448602} , _
+  {DrawTo, -0.217050,-0.415902,1.448602} , _
+  {DrawTo, -0.217050,-0.271424,1.304125} , _
+  {DrawTo, -0.344764,-0.271424,1.448602} , _
+  {DrawTo, -0.217050,-0.126946,1.448602} , _
+  {DrawTo, -0.217050,-0.271424,1.304125} , _
+  {MoveTo,-0.161512,-0.496347,1.471528},   {DrawTo, -0.161512,-0.258833,1.702149} , _
+  {DrawTo, 0.161512,-0.258833,1.702149} , _
+  {MoveTo,-0.161512,-0.258833,1.702149},   {DrawTo, -0.321604,0.578623,0.798109} , _
+  {DrawTo, -0.267016,0.860819,-0.078388} , _
+  {DrawTo, 0.267016,0.860819,-0.078388} , _
+  {MoveTo,-0.267016,0.860819,-0.078388},   {DrawTo, -0.267016,0.633494,-1.244920} , _
+  {DrawTo, -0.147834,0.360783,-1.785661} , _
+  {DrawTo, 0.147834,0.360783,-1.785661} , _
+  {MoveTo,-0.147834,0.360783,-1.785661},   {DrawTo, -0.487614,0.080097,-1.087675} , _
+  {MoveTo,-0.284963,0.319254,-1.153240},   {DrawTo, -0.284963,0.319254,-1.634925} , _
+  {DrawTo, 0.284963,0.319254,-1.634925} , _
+  {MoveTo,-0.284963,-0.001222,-1.955402},   {DrawTo, -0.284963,-0.482907,-1.955402} , _
+  {DrawTo, 0.284963,-0.482907,-1.955402} , _
+  {MoveTo,0.284963,-0.550938,-1.394082},   {DrawTo, 0.284963,-0.242065,-1.085209} , _
+  {MoveTo,-0.284963,-0.482907,-0.832763},   {DrawTo, -0.284963,-0.001222,-0.832763} , _
+  {DrawTo, 0.284963,-0.001222,-0.832763} , _
+  {MoveTo,-0.284963,-0.001222,-0.832763},   {DrawTo, -0.284963,0.319254,-1.153240} , _
+  {DrawTo, 0.284963,0.319254,-1.153240} , _
+  {MoveTo,-0.267016,0.633494,-1.244920},   {DrawTo, 0.267016,0.633494,-1.244920} , _
+  {MoveTo,-0.284963,-0.482907,-0.832763},   {DrawTo, 0.284963,-0.482907,-0.832763} , _
+  {MoveTo,-0.366132,-0.625656,-0.782431},   {DrawTo, 0.366132,-0.625656,-0.782431} , _
+  {MoveTo,-0.284963,-0.803384,-1.153240},   {DrawTo, -0.284963,-0.482907,-0.832763} , _
+  {MoveTo,-0.284963,-0.803384,-1.153240},   {DrawTo, 0.284963,-0.803384,-1.153240} , _
+  {MoveTo,-0.284963,-0.550938,-1.394082},   {DrawTo, -0.284963,-0.242065,-1.702956} , _
+  {MoveTo,-0.284963,-0.482907,-1.955402},   {DrawTo, -0.284963,-0.803384,-1.634925} , _
+  {DrawTo, 0.284963,-0.803384,-1.634925} , _
+  {MoveTo,-0.284963,-0.803384,-1.634925},   {DrawTo, -0.284963,-0.803384,-1.153240} , _
+  {MoveTo,-0.321604,-0.258690,0.690755},   {DrawTo, 0.321604,-0.258690,0.690755} , _
+  {MoveTo,0.150534,-0.044357,0.919390},   {DrawTo, 0.150534,0.257788,1.221536} , _
+  {DrawTo, 0.150534,0.257788,1.675669} , _
+  {DrawTo, 0.150534,-0.044357,1.977815} , _
+  {DrawTo, 0.150534,-0.498491,1.977815} , _
+  {DrawTo, 0.150534,-0.800636,1.675669} , _
+  {DrawTo, 0.150534,-0.800636,1.221536} , _
+  {DrawTo, 0.150534,-0.498491,0.919390} , _
+  {DrawTo, 0.150534,-0.044357,0.919390} , _
+  {DrawTo, -0.150534,-0.044357,0.919390} , _
+  {DrawTo, -0.150534,-0.498491,0.919390} , _
+  {DrawTo, 0.150534,-0.498491,0.919390} , _
+  {MoveTo,-0.150534,-0.498491,0.919390},   {DrawTo, -0.150534,-0.800636,1.221536} , _
+  {DrawTo, 0.150534,-0.800636,1.221536} , _
+  {MoveTo,-0.150534,-0.800636,1.221536},   {DrawTo, -0.150534,-0.800636,1.675669} , _
+  {DrawTo, 0.150534,-0.800636,1.675669} , _
+  {MoveTo,-0.150534,-0.800636,1.675669},   {DrawTo, -0.150534,-0.498491,1.977815} , _
+  {DrawTo, 0.150534,-0.498491,1.977815} , _
+  {MoveTo,-0.150534,-0.498491,1.977815},   {DrawTo, -0.150534,-0.044357,1.977815} , _
+  {DrawTo, 0.150534,-0.044357,1.977815} , _
+  {MoveTo,-0.150534,-0.044357,1.977815},   {DrawTo, -0.150534,0.257788,1.675669} , _
+  {DrawTo, 0.150534,0.257788,1.675669} , _
+  {MoveTo,-0.150534,0.257788,1.675669},   {DrawTo, -0.150534,0.257788,1.221536} , _
+  {DrawTo, 0.150534,0.257788,1.221536} , _
+  {MoveTo,-0.150534,0.257788,1.221536},   {DrawTo, -0.150534,-0.044357,0.919390} , _
+  {MoveTo,-0.321604,0.578623,0.798109},   {DrawTo, 0.321604,0.578623,0.798109} , _
+  {MoveTo,-0.217050,-0.271424,1.593080},   {DrawTo, -0.217050,-0.415902,1.448602} }
   return mysprite
 endfunction
