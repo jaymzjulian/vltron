@@ -11,6 +11,7 @@ vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
 local_scale = 64/vx_scale_factor
 cycle_local_scale = 64/cycle_vx_scale_factor
+vx_frame_rate = 60
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
@@ -20,14 +21,22 @@ map_scale = 1 / local_scale
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 first_person = false
+viewports = 2
 
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 while true
+
 player_direction = { 0, 2, 1, 3 }
 player_intensity = {127, 96, 64, 48 }
 floor_intensity = 48
 wall_intensity = 48
+
+dim status_display[1, 3]
+
+status_display[1,1] = -255 * local_scale
+status_display[1,2] = -255 * local_scale
+status_display[1,3] = "FPS: "
 
 ' This is where in the static array the players are
 dim player_trail[4]
@@ -60,7 +69,7 @@ next
 
 
 start_distance = 16
-player_count = 2
+player_count = 4
 map_x = 64 * local_scale
 map_y = 64 * local_scale
 gridlines_x = 8
@@ -158,7 +167,14 @@ new_overflow = false
 last_begin = 0
 last_rotation = 0
 max_rotation = 15
+last_frame_time = 0
 while game_is_playing do
+  ' show FPS before we get too far 
+  ' this is at 960 hz - so we divide by 960 to get GPS
+  fps_val = 960.0 / (GetTickCount() - last_frame_time) 
+  status_display[1,3] = "FPS: "+fps_val
+  last_frame_time = GetTickCount()
+
   require_redraw = false
   lft = GetTickCount() - last_begin
   ' grab the controls
@@ -191,7 +207,7 @@ while game_is_playing do
     start_sprite = drawn_sprites - sprites_to_disable
     end_sprite = drawn_sprites
 
-    'print "Disabling ",drawn_sprites," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+    print "Disabling ",drawn_sprites," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
     
     if start_sprite < 1
       start_sprite = 1
@@ -509,11 +525,17 @@ sub drawscreen
   ' to defuce typing...
   '
   call ClearScreen
+  call SetFrameRate(vx_frame_rate)
   total_objects = 0
   call cameraTranslate(camera_position)
 
   call aps(IntensitySprite(127))
   call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
+  
+  ' status display
+  call aps_rto()
+  call aps(TextListSprite(status_display))
+
   call aps_rto()
   ' draw an outline for the map
   map_box = aps(LinesSprite({ _
@@ -585,7 +607,7 @@ sub drawscreen
       ' return to origin before doing 3d things
       ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
       call aps_rto()
-      call aps(IntensitySprite(player_intensity[p]/2))
+      call aps(IntensitySprite(player_intensity[p]))
       cycle_sprite[p] = aps(Lines3dSprite(lc_object))
       call SpriteClip(cycle_sprite[p], cycle_clippingRect)
     endif
