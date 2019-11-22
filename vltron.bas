@@ -7,11 +7,16 @@ dim x_move[4]
 dim y_move[4]
 lc_object = lightcycle()
 
+vx_scale_factor = 128.0
+cycle_vx_scale_factor = 32.0
+local_scale = 64/vx_scale_factor
+cycle_local_scale = 64/cycle_vx_scale_factor
+
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
 arena_size_x = 128
 arena_size_y = 128
-map_scale = 1
+map_scale = 1 / local_scale
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 first_person = false
@@ -36,7 +41,8 @@ camera_position = { 0.5, 4.5, -80.5 }
 camera_rotation = { 0, 0, 0 }
 camera_length = 20
 camera_angle = -100
-clippingRect = {{-255,-255},{255,255}}
+clippingRect = {{-255*local_scale,-255*local_scale},{255*local_scale,255*local_scale}}
+cycle_clippingRect = {{-255*cycle_local_scale,-255*cycle_local_scale},{255*cycle_local_scale,255*cycle_local_scale}}
 
 move_speed = 1
 camera_step = 2
@@ -55,8 +61,8 @@ next
 
 start_distance = 16
 player_count = 2
-map_x = 64
-map_y = 64
+map_x = 64 * local_scale
+map_y = 64 * local_scale
 gridlines_x = 8
 gridlines_y = 8
 
@@ -140,7 +146,7 @@ next
 
 call drawscreen
 call aps_rto()
-call aps(MoveSprite(-32, -32))
+call aps(MoveSprite(-32 * local_scale, -32 * local_scale))
 call aps(IntensitySprite(127))
 text = aps(TextSprite("PRESS BUTTONS 1+2 FOR PLAY"))
 text = aps(TextSprite("PRESS BUTTONS 3+4 FOR AI"))
@@ -507,7 +513,7 @@ sub drawscreen
   call cameraTranslate(camera_position)
 
   call aps(IntensitySprite(127))
-  call aps(ScaleSprite(64, 162 / 0.097))
+  call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
   call aps_rto()
   ' draw an outline for the map
   map_box = aps(LinesSprite({ _
@@ -537,21 +543,21 @@ sub drawscreen
     call aps_rto()
     'dim foome3d[player_pos[p]*4-2, 4]
     dim foome3d[(player_pos[p]-1)*4, 4]
-    ' start drawing at bottom right
-    foome3d[1, 1] = MoveTo
-    foome3d[1, 2] = player_x[p, 2] - arena_size_x/2
-    foome3d[1, 3] = 0
-    foome3d[1, 4] = player_y[p, 2] - arena_size_y/2
 
-    eor_thing = 2
     for seg = 1 to (player_pos[p] - 1)
-      ' to bottom left 
+      ' bottom right
       foome3d[(seg-1)*4+1, 1] = DrawTo
-      foome3d[(seg-1)*4+1, 2] = player_x[p, seg]  - arena_size_x/2
+      foome3d[(seg-1)*4+1, 2] = player_x[p, seg + 1]  - arena_size_x/2
       foome3d[(seg-1)*4+1, 3] = 0 
-      foome3d[(seg-1)*4+1, 4] = player_y[p, seg] - arena_size_y/2
+      foome3d[(seg-1)*4+1, 4] = player_y[p, seg + 1] - arena_size_y/2
+      
+			' bottom left
+      foome3d[(seg-1)*4+2, 1] = DrawTo
+      foome3d[(seg-1)*4+2, 2] = player_x[p, seg] - arena_size_x/2
+      foome3d[(seg-1)*4+2, 3] = 0
+      foome3d[(seg-1)*4+2, 4] = player_y[p, seg] - arena_size_y/2
 
-       ' to up left 
+       ' to up left
       foome3d[(seg-1)*4+3, 1] = DrawTo
       foome3d[(seg-1)*4+3, 2] = player_x[p, seg] - arena_size_x/2
       foome3d[(seg-1)*4+3, 3] = 2 
@@ -559,9 +565,9 @@ sub drawscreen
       
       ' to up right 
       foome3d[(seg-1)*4+4, 1] = DrawTo
-      foome3d[(seg-1)*4+4, 2] = player_x[p, (seg+1)] - arena_size_x/2
+      foome3d[(seg-1)*4+4, 2] = player_x[p, seg + 1] - arena_size_x/2
       foome3d[(seg-1)*4+4, 3] = 2
-      foome3d[(seg-1)*4+4, 4] = player_y[p, (seg+1)] - arena_size_y/2
+      foome3d[(seg-1)*4+4, 4] = player_y[p, seg + 1] - arena_size_y/2
 
     next
     ' make the start of the trail a move :)
@@ -573,6 +579,7 @@ sub drawscreen
   next
   
   ' put these in a secod loop so they appear at the end of the display list...
+  call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
   for p = 1 to player_count
     if first_person = false or p != 1
       ' return to origin before doing 3d things
@@ -580,9 +587,10 @@ sub drawscreen
       call aps_rto()
       call aps(IntensitySprite(player_intensity[p]/2))
       cycle_sprite[p] = aps(Lines3dSprite(lc_object))
-      call SpriteClip(cycle_sprite[p], clippingRect)
+      call SpriteClip(cycle_sprite[p], cycle_clippingRect)
     endif
   next
+  call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
   call aps(IntensitySprite(127))
   
   ' why is this after the other things?  so it gets destroyed earlier ;)
