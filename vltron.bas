@@ -12,6 +12,7 @@ cycle_vx_scale_factor = 32.0
 local_scale = 64/vx_scale_factor
 cycle_local_scale = 64/cycle_vx_scale_factor
 vx_frame_rate = 60
+target_game_rate = 20
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
@@ -27,16 +28,29 @@ x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 while true
 
+status_enabled = true
 player_direction = { 0, 2, 1, 3 }
-player_intensity = {127, 96, 64, 48 }
+player_intensity = {127, 96, 64, 80 }
 floor_intensity = 48
 wall_intensity = 48
 
-dim status_display[1, 3]
+dim status_display[4, 3]
 
 status_display[1,1] = -255 * local_scale
-status_display[1,2] = -255 * local_scale
+status_display[1,2] = 255 * local_scale
 status_display[1,3] = "FPS: "
+
+status_display[2,1] = -255 * local_scale
+status_display[2,2] = 235 * local_scale
+status_display[2,3] = "VXTIME: "
+
+status_display[3,1] = -255 * local_scale
+status_display[3,2] = 215 * local_scale
+status_display[3,3] = "LAST REDRAW: "
+
+status_display[4,1] = -255 * local_scale
+status_display[4,2] = 195 * local_scale
+status_display[4,3] = "AI: "
 
 ' This is where in the static array the players are
 dim player_trail[4]
@@ -168,12 +182,26 @@ last_begin = 0
 last_rotation = 0
 max_rotation = 15
 last_frame_time = 0
+wait_for_frame_time = 100
+rdt = 0
+game_start_time = GetTickCount()
+frames_played = 0
+ai_time = 0
+deal_with_overflow = false
 while game_is_playing do
   ' show FPS before we get too far 
   ' this is at 960 hz - so we divide by 960 to get GPS
-  fps_val = 960.0 / (GetTickCount() - last_frame_time) 
-  status_display[1,3] = "FPS: "+fps_val
-  last_frame_time = GetTickCount()
+  if status_enabled
+    ctick = GetTickCount()
+    fps_val = 960.0 / (ctick - last_frame_time) 
+    status_display[1,3] = "FPS: "+Int(fps_val) + " ("+ (ctick - last_frame_time) +"T)"
+    vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
+    status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%"+" ("+wait_for_frame_time+"T)"
+    status_display[3,3] = "LAST REDRAW: "+rdt+"T"
+    status_display[4,3] = "AI: "+ai_time+"T"
+    last_frame_time = ctick
+  endif
+
 
   require_redraw = false
   lft = GetTickCount() - last_begin
@@ -194,8 +222,8 @@ while game_is_playing do
   overflowed = new_overflowed
   
 
-  overflowed = false
   ' if we didn't overflow, ensure all sprites are enabled next frame
+  if deal_with_overflow
   if overflowed = false
     for sp = 1 to total_objects
       call SpriteEnable(all_sprites[sp], true)
@@ -234,6 +262,7 @@ while game_is_playing do
       call SpriteEnable(all_sprites[sp], false)
     next
   endif
+  endif
 
 
   ' handle player input
@@ -252,11 +281,22 @@ while game_is_playing do
     camera_length = 4
   endif
 
+  ' actual game logic is here :)
+  ' are we due for another frame?
+  target_frames = ((GetTickCount() - game_start_time) * target_game_rate) / 960.0
+  'print "Target: ",target_frames, " Played: ", frames_played
+
+  ai_time = 0
+  while target_frames > frames_played
+  ' process!
+  frames_played = frames_played + 1
+  run_count = 0
   for p = 1 to player_count
     if game_started
 
     require_update = 0
-    if computer_only[p]
+    if computer_only[p] and run_count = 0
+      start_ai = GetTickCount()
       ' of our three angles, find which one will kill us the least quickly
       directions_to_test = { player_direction[p], (player_direction[p]+1) mod 4, (player_direction[p]+3) mod 4} 
 
@@ -271,7 +311,7 @@ while game_is_playing do
           current_y = player_y[p, player_pos[p]] + y_move[directions_to_test[c]+1]
           cdist = 0
           mdist = 0
-          while collision(current_x, current_y) = false 'and cdist < 32
+          while collision(current_x, current_y) = false and cdist < 16
             current_x = current_x + x_move[directions_to_test[c]+1]
             current_y = current_y + y_move[directions_to_test[c]+1]
             cdist = cdist + 1
@@ -288,6 +328,7 @@ while game_is_playing do
           require_update = 1
         endif
       endif
+      ai_time = ai_time + (GetTickCount()-start_ai)
     else
       ' handle input - we use require_update as a flag to know if we
       ' need to redraw the screen...
@@ -310,7 +351,9 @@ while game_is_playing do
       player_x[p, player_pos[p]] = player_x[p, player_pos[p] - move_speed] 
       player_y[p, player_pos[p]] = player_y[p, player_pos[p] - move_speed] 
       require_redraw = true
+      s = GetTickCount()
       call drawscreen
+      rdt = s - GetTickCount()
     endif
 
     ' move the cycles
@@ -344,6 +387,11 @@ while game_is_playing do
       call SpriteSetRotation(cycle_sprite[p], 0, 0, sprrot[player_direction[p]+1])
     endif
   next
+
+  ' end the frame loop _before_ we redraw the screen, since that is expensive - though we should keep track 
+  ' of how many loops we did and modify camera based on that!
+  run_count = run_count + 1
+  endwhile
 
   ' if require redraw, do it now
   if require_redraw and game_started 
@@ -495,7 +543,7 @@ endfunction
 
 sub sprite_overflow
   'if overflowed
-    print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
+  '  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
   'endif
   new_overflowed = true
 endsub
