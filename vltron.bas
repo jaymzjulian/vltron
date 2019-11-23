@@ -31,6 +31,7 @@ while true
 status_enabled = true
 player_direction = { 0, 2, 1, 3 }
 player_intensity = {127, 96, 64, 80 }
+alive = { true, true, true, true }
 floor_intensity = 48
 wall_intensity = 48
 
@@ -287,12 +288,14 @@ while game_is_playing do
   'print "Target: ",target_frames, " Played: ", frames_played
 
   ai_time = 0
+  ' FIXME: support partial frames - which is to say, do fractional increments of position, at least for the 3d
+  ' part
   while target_frames > frames_played
   ' process!
   frames_played = frames_played + 1
   run_count = 0
   for p = 1 to player_count
-    if game_started
+    if game_started and alive[p]
 
     require_update = 0
     if computer_only[p] and run_count = 0
@@ -377,7 +380,8 @@ while game_is_playing do
   
     ' process collisions
     if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
-      game_is_playing = false
+      alive[p] = false
+      require_redraw = true
     else
       arena[player_y[p, player_pos[p]] * arena_size_x  + player_x[p, player_pos[p]]] = p
     endif
@@ -496,6 +500,9 @@ while game_is_playing do
     'print camera_position
     'print -zangle
     'call SpritePrintVectors(player_trail3d[1])
+    if alive[1] = false
+      game_is_playing = false
+    endif
 
     call cameraSetRotation(y_angle, 0, -z_angle)
   endif
@@ -594,6 +601,7 @@ sub drawscreen
       {DrawTo, map_x, map_y } }))
 
   for p = 1 to player_count
+    if alive[p]
     ' draw the 2D representation
     call aps_rto()
     call aps(IntensitySprite(player_intensity[p]))
@@ -646,11 +654,13 @@ sub drawscreen
     player_trail3d[p] = foome3d
     ptr = aps(Lines3dSprite(player_trail3d[p]))
     call SpriteClip(ptr, clippingRect)
+    endif
   next
   
   ' put these in a secod loop so they appear at the end of the display list...
   call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
   for p = 1 to player_count
+    if alive[p]
     if first_person = false or p != 1
       ' return to origin before doing 3d things
       ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
@@ -658,6 +668,7 @@ sub drawscreen
       call aps(IntensitySprite(player_intensity[p]))
       cycle_sprite[p] = aps(Lines3dSprite(lc_object))
       call SpriteClip(cycle_sprite[p], cycle_clippingRect)
+    endif
     endif
   next
   call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
