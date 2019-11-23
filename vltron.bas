@@ -9,10 +9,12 @@ lc_object = lightcycle()
 
 vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
-local_scale = 64/vx_scale_factor
-cycle_local_scale = 64/cycle_vx_scale_factor
+local_scale = 64.0 / vx_scale_factor
+cycle_local_scale = 64.0 /cycle_vx_scale_factor
 vx_frame_rate = 60
 target_game_rate = 20
+
+
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
@@ -20,6 +22,7 @@ arena_size_x = 128
 arena_size_y = 128
 map_scale = 1 / local_scale
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
+
 
 first_person = false
 viewports = 2
@@ -170,10 +173,18 @@ next
 
 call drawscreen
 call aps_rto()
-call aps(MoveSprite(-32 * local_scale, -32 * local_scale))
+call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
 call aps(IntensitySprite(127))
 text = aps(TextSprite("PRESS BUTTONS 1+2 FOR PLAY"))
 text = aps(TextSprite("PRESS BUTTONS 3+4 FOR AI"))
+
+print "--------------------------------------------"
+print "local_scale ",local_scale
+print "vx_scale_factor ",vx_scale_factor
+print "map_scale ",map_scale
+print "map_x ", map_x
+print "map_y ", map_y
+print "--------------------------------------------"
 
 ' some state
 game_started = false
