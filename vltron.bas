@@ -13,20 +13,21 @@ local_scale = 64.0 / vx_scale_factor
 cycle_local_scale = 64.0 /cycle_vx_scale_factor
 vx_frame_rate = 60
 target_game_rate = 20
-
+debug_status = false
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
 arena_size_x = 128
 arena_size_y = 128
-map_scale = 1 / local_scale
+' map_scale is based on a 128x128 arena
+map_scale = ((arena_size_x/192.0) / local_scale)
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 ' define where our horizins are
 ' we're going to make these dynamic, eventually...
 trail_view_distance_sq = 64 * 64
 cycle_view_distance_sq = 64 * 64
-clip_trails = true
+clip_trails = false
 
 
 first_person = false
@@ -43,7 +44,6 @@ alive = { true, true, true, true }
 floor_intensity = 48
 wall_intensity = 48
 
-debug_status = true
 if debug_status
 dim status_display[5, 3]
 else
@@ -574,6 +574,10 @@ while game_is_playing do
         ' and now our new round
         dist_v_a = {player_trail3d[p][ele, 2], 0, player_trail3d[p][ele, 4]} - camera_position
         dist_a = dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+        ' FIXME: also check sign, so a long line going through our viewport does not
+        ' get clipped - another obvious answer is tesselate those large lines, however
+        ' if we do this, we start overflowing DP ram - but maybe a tesselation of, say, 
+        ' 32 might be okay..... i'll have to experiment and see!
         if (dist_a > trail_view_distance_sq) and (dist_b > trail_view_distance_sq)
           player_trail3d[p][ele, 1] = MoveTo
         else
