@@ -15,13 +15,18 @@ vx_frame_rate = 60
 target_game_rate = 20
 
 
-
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
 arena_size_x = 128
 arena_size_y = 128
 map_scale = 1 / local_scale
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
+
+' define where our horizins are
+' we're going to make these dynamic, eventually...
+trail_view_distance_sq = 64 * 64
+cycle_view_distance_sq = 64 * 64
+clip_trails = true
 
 
 first_person = false
@@ -38,9 +43,9 @@ alive = { true, true, true, true }
 floor_intensity = 48
 wall_intensity = 48
 
-debug_status = false
+debug_status = true
 if debug_status
-dim status_display[4, 3]
+dim status_display[5, 3]
 else
 dim status_display[1, 3]
 endif
@@ -61,6 +66,10 @@ if debug_status
   status_display[4,1] = -255 * local_scale
   status_display[4,2] = 195 * local_scale
   status_display[4,3] = "AI: "
+  
+  status_display[5,1] = -255 * local_scale
+  status_display[5,2] = 175 * local_scale
+  status_display[5,3] = "CLIP: "
 endif
 
 ' This is where in the static array the players are
@@ -207,6 +216,7 @@ rdt = 0
 game_start_time = GetTickCount()
 frames_played = 0
 ai_time = 0
+clip_time = 0
 deal_with_overflow = false
 while game_is_playing do
   ' show FPS before we get too far 
@@ -220,6 +230,7 @@ while game_is_playing do
       status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%"+" ("+wait_for_frame_time+"T)"
       status_display[3,3] = "LAST REDRAW: "+rdt+"T"
       status_display[4,3] = "AI: "+ai_time+"T"
+      status_display[5,3] = "CLIP: "+clip_time+"T"
     endif
     last_frame_time = ctick
   endif
@@ -527,8 +538,51 @@ while game_is_playing do
 
     call cameraSetRotation(y_angle, 0, -z_angle)
   endif
+  
+  ' finally, clip things that are more than
+  ' n units away from the camera.  this might be terrible to do, but my inclination is that it makes sense!
+  ctick = GetTickCount()
+  for p = 1 to player_count
+    ' this should be really just taken from the thing - need to switch to live data....
+    player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2}
+    ' do a matrix sub 
+    dist_v = player_loc - camera_position
+    ' get dist^2
+    dist = dist_v[1] * dist_v[1] + dist_v[3] * dist_v[3]
+    ' just do the thing with sq co-orders
+    ' this might be terrible to do, since 
+    if dist > cycle_view_distance_sq
+      call SpriteEnable(cycle_sprite[p], false)
+    else
+      call SpriteEnable(cycle_sprite[p], true)
+    endif
 
+    ' FIXME: disable the drivers if further - do this once i add the drivers...
 
+    if clip_trails
+    ' now do the trails - we don't spritedisable those, since it would not make sense.... what we do instead,
+    ' is turn DrawTo into MoveTo, and disable the lines that way.  What this _can_ mean, is we disable longer lines
+    ' so we'll need to consider _both_ ends of the line we're drawing.
+
+    ' preload the first cached entry
+    dist_v_a = {player_trail3d[p][1, 2], 0, player_trail3d[p][1, 4]} - camera_position
+    dist_a =  dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+
+    for ele = 2 to Ubound(player_trail3d[p])
+      ' this is from the last round, as a perf hack
+      dist_b = dist_a
+      ' and now our new round
+      dist_v_a = {player_trail3d[p][ele, 2], 0, player_trail3d[p][ele, 4]} - camera_position
+      dist_a = dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+      if (dist_a > trail_view_distance_sq) and (dist_b > trail_view_distance_sq)
+        player_trail3d[p][ele, 1] = MoveTo
+      else
+        player_trail3d[p][ele, 1] = DrawTo
+      endif
+    next
+    endif
+  next
+  clip_time = GetTickCount() - ctick
 endwhile
 
 print "hit game over"
