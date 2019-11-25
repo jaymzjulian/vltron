@@ -560,26 +560,26 @@ while game_is_playing do
     ' FIXME: disable the drivers if further - do this once i add the drivers...
 
     if clip_trails
-    ' now do the trails - we don't spritedisable those, since it would not make sense.... what we do instead,
-    ' is turn DrawTo into MoveTo, and disable the lines that way.  What this _can_ mean, is we disable longer lines
-    ' so we'll need to consider _both_ ends of the line we're drawing.
+      ' now do the trails - we don't spritedisable those, since it would not make sense.... what we do instead,
+      ' is turn DrawTo into MoveTo, and disable the lines that way.  What this _can_ mean, is we disable longer lines
+      ' so we'll need to consider _both_ ends of the line we're drawing.
 
-    ' preload the first cached entry
-    dist_v_a = {player_trail3d[p][1, 2], 0, player_trail3d[p][1, 4]} - camera_position
-    dist_a =  dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+      ' preload the first cached entry
+      dist_v_a = {player_trail3d[p][1, 2], 0, player_trail3d[p][1, 4]} - camera_position
+      dist_a =  dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
 
-    for ele = 2 to Ubound(player_trail3d[p])
-      ' this is from the last round, as a perf hack
-      dist_b = dist_a
-      ' and now our new round
-      dist_v_a = {player_trail3d[p][ele, 2], 0, player_trail3d[p][ele, 4]} - camera_position
-      dist_a = dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
-      if (dist_a > trail_view_distance_sq) and (dist_b > trail_view_distance_sq)
-        player_trail3d[p][ele, 1] = MoveTo
-      else
-        player_trail3d[p][ele, 1] = DrawTo
-      endif
-    next
+      for ele = 2 to Ubound(player_trail3d[p])
+        ' this is from the last round, as a perf hack
+        dist_b = dist_a
+        ' and now our new round
+        dist_v_a = {player_trail3d[p][ele, 2], 0, player_trail3d[p][ele, 4]} - camera_position
+        dist_a = dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+        if (dist_a > trail_view_distance_sq) and (dist_b > trail_view_distance_sq)
+          player_trail3d[p][ele, 1] = MoveTo
+        else
+          player_trail3d[p][ele, 1] = DrawTo
+        endif
+      next
     endif
   next
   clip_time = GetTickCount() - ctick
