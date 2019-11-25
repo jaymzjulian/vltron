@@ -38,23 +38,30 @@ alive = { true, true, true, true }
 floor_intensity = 48
 wall_intensity = 48
 
+debug_status = false
+if debug_status
 dim status_display[4, 3]
+else
+dim status_display[1, 3]
+endif
 
 status_display[1,1] = -255 * local_scale
 status_display[1,2] = 255 * local_scale
 status_display[1,3] = "FPS: "
 
-status_display[2,1] = -255 * local_scale
-status_display[2,2] = 235 * local_scale
-status_display[2,3] = "VXTIME: "
+if debug_status
+  status_display[2,1] = -255 * local_scale
+  status_display[2,2] = 235 * local_scale
+  status_display[2,3] = "VXTIME: "
 
-status_display[3,1] = -255 * local_scale
-status_display[3,2] = 215 * local_scale
-status_display[3,3] = "LAST REDRAW: "
+  status_display[3,1] = -255 * local_scale
+  status_display[3,2] = 215 * local_scale
+  status_display[3,3] = "LAST REDRAW: "
 
-status_display[4,1] = -255 * local_scale
-status_display[4,2] = 195 * local_scale
-status_display[4,3] = "AI: "
+  status_display[4,1] = -255 * local_scale
+  status_display[4,2] = 195 * local_scale
+  status_display[4,3] = "AI: "
+endif
 
 ' This is where in the static array the players are
 dim player_trail[4]
@@ -184,6 +191,7 @@ print "vx_scale_factor ",vx_scale_factor
 print "map_scale ",map_scale
 print "map_x ", map_x
 print "map_y ", map_y
+print "cliprect ",clippingRect
 print "--------------------------------------------"
 
 ' some state
@@ -207,10 +215,12 @@ while game_is_playing do
     ctick = GetTickCount()
     fps_val = 960.0 / (ctick - last_frame_time) 
     status_display[1,3] = "FPS: "+Int(fps_val) + " ("+ (ctick - last_frame_time) +"T)"
-    vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
-    status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%"+" ("+wait_for_frame_time+"T)"
-    status_display[3,3] = "LAST REDRAW: "+rdt+"T"
-    status_display[4,3] = "AI: "+ai_time+"T"
+    if debug_status
+      vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
+      status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%"+" ("+wait_for_frame_time+"T)"
+      status_display[3,3] = "LAST REDRAW: "+rdt+"T"
+      status_display[4,3] = "AI: "+ai_time+"T"
+    endif
     last_frame_time = ctick
   endif
 
