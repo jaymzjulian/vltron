@@ -11,7 +11,7 @@ vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
 local_scale = 64.0 / vx_scale_factor
 cycle_local_scale = 64.0 /cycle_vx_scale_factor
-vx_frame_rate = 60
+vx_frame_rate = 120
 target_game_rate = 20
 debug_status = false
 
@@ -206,7 +206,6 @@ print "--------------------------------------------"
 ' some state
 game_started = false
 overflowed = false
-new_overflow = false
 last_begin = 0
 last_rotation = 0
 max_rotation = 15
@@ -217,7 +216,6 @@ game_start_time = GetTickCount()
 frames_played = 0
 ai_time = 0
 clip_time = 0
-deal_with_overflow = false
 while game_is_playing do
   ' show FPS before we get too far 
   ' this is at 960 hz - so we divide by 960 to get GPS
@@ -235,67 +233,61 @@ while game_is_playing do
     last_frame_time = ctick
   endif
 
-
   require_redraw = false
+
   lft = GetTickCount() - last_begin
-  ' grab the controls
-  new_overflowed = false
-  f = GetTickCount()
-  on error call sprite_overflow
-  controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
-  on error call 0
-  wait_for_frame_time = GetTickCount()-f
-  if wait_for_frame_time > 100
-    print "Drawscreen took ",wait_for_frame_time," lastov: ",overflowed," thisov: ",new_overflowed, " last: ",lft
-  endif
-  last_begin = GetTickCount()
 
-  ' at this point, overflowed is the _last_ frame overflow value, whereas
-  ' new_overflow is our _new_ frame overflow value.  
-  overflowed = new_overflowed
+
+  ' draw until everything is drawn!
+  for sp = 1 to total_objects
+    call SpriteEnable(all_sprites[sp], true)
+  next
+  overflowed = true
+  while overflowed = true
+    overflowed = false
+    f = GetTickCount()
+    on error call sprite_overflow
+    controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+    on error call 0
+    wait_for_frame_time = GetTickCount()-f
+    if wait_for_frame_time > 100
+      print "Drawscreen took ",wait_for_frame_time," lastov: ",overflowed
+    endif
+    last_begin = GetTickCount()
   
+    if overflowed = true
+      ' if we _did_ overflow, disable all of the sprites we draw, and call
+      ' draw again to put them on the screen next frame!
+      end_sprite = GetCompiledSpriteCount()
 
-  ' if we didn't overflow, ensure all sprites are enabled next frame
-  if deal_with_overflow
-  if overflowed = false
-    for sp = 1 to total_objects
-      call SpriteEnable(all_sprites[sp], true)
-    next
-  ' if we _did_ overflow, disable some sprites!
-  else
-    drawn_sprites = GetCompiledSpriteCount()
-    sprites_to_disable = (total_objects - drawn_sprites) 
-    start_sprite = drawn_sprites - sprites_to_disable
-    end_sprite = drawn_sprites
-
-    print "Disabling ",drawn_sprites," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+      print "Disabling ",end_sprite," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
     
-    if start_sprite < 1
-      start_sprite = 1
-    endif
-    if end_sprite > total_objects
-      end_sprite = total_objects
-    endif
+      ' this should never happen, but just in case!
+      if end_sprite > total_objects
+        end_sprite = total_objects
+      endif
 
-    ' we have to align to return_to_origins here - otherwise
-    ' we'll get pen drift.  To do this, we'll move _BOTH_ start sprite and
-    ' end sprite back, on the grounds that if we half drew something, we should give it a 
-    ' second chance to draw here!
-    while all_origins[start_sprite] = false  and start_sprite > 1
-      start_sprite = start_sprite - 1
-    endwhile
-    ' for end sprite, we want to stop one shy of the return to origin - we want
-    ' the RTO to be executed!
-    while all_origins[end_sprite+1] = false  and end_sprite > 1
-      end_sprite = end_sprite - 1
-    endwhile
+      ' we have to align to return_to_origins here - otherwise
+      ' we'll get pen drift.  To do this, we'll move _BOTH_ start sprite and
+      ' end sprite back, on the grounds that if we half drew something, we should give it a 
+      ' second chance to draw here!
+      '
+      ' for end sprite, we want to stop one shy of the return to origin - we want
+      ' the RTO to be executed!
+      while all_origins[end_sprite+1] = false  and end_sprite > 1
+        end_sprite = end_sprite - 1
+      endwhile
 
-    ' FIXME: traverse back/forward to a return_to_origin_sprite - but how do we detect one?
-    for sp = start_sprite to end_sprite
-      call SpriteEnable(all_sprites[sp], false)
-    next
-  endif
-  endif
+      'print all_origins[end_sprite]
+      'print all_origins[end_sprite+1]
+      'print "starting at sprite",end_sprite
+
+      ' skip sprites 1 and 2, since they are our scale and the first RTO
+      for sp = 3 to end_sprite
+        call SpriteEnable(all_sprites[sp], false)
+      next
+    endif
+  endwhile
 
 
   ' handle player input
@@ -628,10 +620,12 @@ function collision(x, y)
 endfunction
 
 sub sprite_overflow
-  'if overflowed
-  '  print "Sprite Overflow - drew ",GetCompiledSpriteCount()," of ",total_objects," objects - time to reduce! - last frame overflow was ",overflowed
-  'endif
-  new_overflowed = true
+  overflowed = true
+  e = GetLastError()
+  if e[1] != 521
+    print "FATAL: ",e
+    bp
+  endif
 endsub
 
 
@@ -756,8 +750,8 @@ sub drawscreen
   ' why is this after the other things?  so it gets destroyed earlier ;)
   ' draw horizontal gridlines
   ' zig-zag these so we don't do long pen moves
-  call aps(IntensitySprite(floor_intensity))
   call aps_rto()
+  call aps(IntensitySprite(floor_intensity))
   sprb = aps(Lines3dSprite(floor_b))
   call SpriteClip(sprb, clippingRect)
 
