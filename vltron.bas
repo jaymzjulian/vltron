@@ -8,6 +8,7 @@ dim y_move[4]
 lc_object = lightcycle()
 
 release_mode = true
+'release_mode = false
 
 vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
@@ -246,11 +247,14 @@ while game_is_playing do
   next
   overflowed = true
   broken = false
-  while overflowed = true and broken =  false
+  while overflowed = true 
     overflowed = false
-    broken = false
     f = GetTickCount()
-    on error call sprite_overflow
+    ' if we have an error, lets let the error happen this loop
+    if broken = false or release_mode = true
+      on error call sprite_overflow
+    endif
+    broken = false
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
     on error call 0
     wait_for_frame_time = GetTickCount()-f
@@ -258,8 +262,16 @@ while game_is_playing do
       print "Drawscreen took ",wait_for_frame_time," lastov: ",overflowed
     endif
     last_begin = GetTickCount()
+
+    ' if we are in release mode, and we got a broken draw list item, lets
+    ' just try disabling that item!
+    if release_mode and broken
+      end_sprite = GetCompiledSpriteCount()
+      print "Disabling broken sprite ",end_sprite+1
+      call SpriteEnable(all_sprites[end_sprite+1], false)
+    endif
   
-    if overflowed = true
+    if overflowed = true ' and broken = false
       ' if we _did_ overflow, disable all of the sprites we draw, and call
       ' draw again to put them on the screen next frame!
       end_sprite = GetCompiledSpriteCount()
@@ -629,9 +641,9 @@ sub sprite_overflow
   if e[1] != 521
     if release_mode = false
       print "FATAL: ",e
-      bp
+      broken = true
     else
-      print "WARNING: ",e," continuing since release_mode is oin"
+      print "WARNING: ",e," continuing since release_mode is on"
       broken = true
     endif
   endif
