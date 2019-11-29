@@ -7,6 +7,8 @@ dim x_move[4]
 dim y_move[4]
 lc_object = lightcycle()
 
+release_mode = true
+
 vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
 local_scale = 64.0 / vx_scale_factor
@@ -243,8 +245,10 @@ while game_is_playing do
     call SpriteEnable(all_sprites[sp], true)
   next
   overflowed = true
-  while overflowed = true
+  broken = false
+  while overflowed = true and broken =  false
     overflowed = false
+    broken = false
     f = GetTickCount()
     on error call sprite_overflow
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
@@ -260,7 +264,7 @@ while game_is_playing do
       ' draw again to put them on the screen next frame!
       end_sprite = GetCompiledSpriteCount()
 
-      print "Disabling ",end_sprite," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
+      'print "Disabling ",end_sprite," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
     
       ' this should never happen, but just in case!
       if end_sprite > total_objects
@@ -623,8 +627,13 @@ sub sprite_overflow
   overflowed = true
   e = GetLastError()
   if e[1] != 521
-    print "FATAL: ",e
-    bp
+    if release_mode = false
+      print "FATAL: ",e
+      bp
+    else
+      print "WARNING: ",e," continuing since release_mode is oin"
+      broken = true
+    endif
   endif
 endsub
 
