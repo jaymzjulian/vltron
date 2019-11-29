@@ -194,7 +194,7 @@ game_is_playing = true
 ' do thius to avoid an error condition
 call ClearScreen
 controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
-las_controls = controls
+last_controls = controls
 
 ' set up the screen and the radar box
 dim cycle_sprite[4]
@@ -367,10 +367,10 @@ while game_is_playing do
   ai_time = 0
   ' FIXME: support partial frames - which is to say, do fractional increments of position, at least for the 3d
   ' part
+  run_count = 0
   while target_frames > frames_played
   ' process!
   frames_played = frames_played + 1
-  run_count = 0
   for p = 1 to player_count
     if game_started and alive[p]
 
@@ -479,7 +479,9 @@ while game_is_playing do
     call drawscreen
   endif
   
-  last_controls = controls
+  if run_count > 0
+    last_controls = controls
+  endif
 
   ' if we're not playing yet, wait until we are!
   if game_started = false
