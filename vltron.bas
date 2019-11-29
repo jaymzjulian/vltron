@@ -31,7 +31,7 @@ arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 trail_view_distance_sq = 64 * 64
 cycle_view_distance_sq = 64 * 64
 clip_trails = false
-split_screen = true
+split_screen = false
 
 half_screen = 255 * local_scale
 half_screen_scaled = 255 * cycle_local_scale
@@ -277,9 +277,6 @@ while game_is_playing do
 
 
   ' draw until everything is drawn!
-  for sp = 1 to total_objects
-    call SpriteEnable(all_sprites[sp], true)
-  next
   overflowed = true
   broken = false
   while overflowed = true 
@@ -339,6 +336,11 @@ while game_is_playing do
       next
     endif
   endwhile
+
+  ' re-enable _after_ the loop, so clipping works!
+  for sp = 1 to total_objects
+    call SpriteEnable(all_sprites[sp], true)
+  next
 
 
   ' handle player input
