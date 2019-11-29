@@ -31,10 +31,14 @@ arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 trail_view_distance_sq = 64 * 64
 cycle_view_distance_sq = 64 * 64
 clip_trails = false
+split_screen = true
 
+half_screen = 255 * local_scale
+half_screen_scaled = 255 * cycle_local_scale
+viewport_translate = {{MoveTo, 0, half_screen }}
+viewport_translate_scaled = {{MoveTo, 0, half_screen_scaled }}
 
 first_person = false
-viewports = 2
 
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
@@ -84,11 +88,20 @@ dim sprrot[4]
 
 sprrot = {0, 270, 180, 90}
 camera_position = { 0.5, 4.5, -80.5 }
+split_camera = { _
+  { 0.5, 4.5, -80.5 }, _
+  { 0.5, 4.5, -80.5 } _
+}
 camera_rotation = { 0, 0, 0 }
 camera_length = 20
 camera_angle = -100
 clippingRect = {{-255*local_scale,-255*local_scale},{255*local_scale,255*local_scale}}
 cycle_clippingRect = {{-255*cycle_local_scale,-255*cycle_local_scale},{255*cycle_local_scale,255*cycle_local_scale}}
+
+'if split_screen
+'  clippingRect = {{-255*local_scale,-255*local_scale},{255*local_scale,0}}
+'  cycle_clippingRect = {{-255*cycle_local_scale,-255*cycle_local_scale},{255*cycle_local_scale,0}}
+'endif
 
 move_speed = 1
 camera_step = 2
@@ -219,7 +232,29 @@ game_start_time = GetTickCount()
 frames_played = 0
 ai_time = 0
 clip_time = 0
+split_player = 1
 while game_is_playing do
+  ' 1 eor 3 = 2
+  ' 2 eor 3 = 1 :)
+  if split_screen
+    split_player = split_player ^ 3
+    if split_player = 1
+      viewport_translate[1,3] = half_screen 
+      viewport_translate_scaled[1,3] = half_screen_scaled
+      clippingRect[1,2] = -255*local_scale
+      clippingRect[2,2] = 0
+      cycle_clippingRect[1,2] = -255*cycle_local_scale
+      cycle_clippingRect[2,2] = 0
+    else
+      viewport_translate[1,3] = 0 
+      viewport_translate_scaled[1,3] = 0
+      clippingRect[1,2] = -255*local_scale
+      clippingRect[2,2] = 0
+      cycle_clippingRect[1,2] = -255*cycle_local_scale
+      cycle_clippingRect[2,2] = 0
+    endif
+  endif
+
   ' show FPS before we get too far 
   ' this is at 960 hz - so we divide by 960 to get GPS
   if status_enabled
@@ -408,7 +443,7 @@ while game_is_playing do
       player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] / map_scale + map_x
       player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] / map_scale + map_y
 
-      if first_person = false or p != 1
+      if first_person = false or p != split_player
         ' update the 3d trail
         player_trail3d[p][(player_pos[p]-2)*4+1, 2] = player_x[p, player_pos[p]] - arena_size_x/2
         player_trail3d[p][(player_pos[p]-2)*4+1, 4] = player_y[p, player_pos[p]] - arena_size_y/2
@@ -479,46 +514,50 @@ while game_is_playing do
     endif
       
 
-    p = 1
+    p = split_player
     camera_position[1] = player_x[p, player_pos[p]] - arena_size_x/2
     camera_position[2] = 1
     camera_position[3] = player_y[p, player_pos[p]] - arena_size_y/2
     call cameraSetRotation(0, 0, last_rotation)
   else
     ' look at the player
-    target_x = player_x[1, player_pos[1]] - arena_size_x/2
+    target_x = player_x[split_player, player_pos[split_player]] - arena_size_x/2
     target_y = 1
-    target_z = player_y[1, player_pos[1]] - arena_size_y/2
+    target_z = player_y[split_player, player_pos[split_player]] - arena_size_y/2
     ' degrees to radians
-    angle = ((sprrot[player_direction[1]+1]+camera_angle)mod 360)  / 57.2958
+    angle = ((sprrot[player_direction[split_player]+1]+camera_angle)mod 360)  / 57.2958
     sa = sin(angle)
     ca = cos(angle)
 
     wanted_x = (target_x - (ca*camera_length - sa*camera_length )) + 0.5
     wanted_z = (target_z + (sa*camera_length + ca*camera_length )) + 0.5
-    if abs(camera_position[1] - wanted_x) < camera_step
-      camera_position[1] = wanted_x
+    if abs(split_camera[split_player,1] - wanted_x) < camera_step
+      split_camera[split_player,1] = wanted_x
     else
-      if camera_position[1] > wanted_x
-        camera_position[1] = camera_position[1] - camera_step
+      if split_camera[split_player,1] > wanted_x
+        split_camera[split_player,1] = split_camera[split_player,1] - camera_step
       else
-        camera_position[1] = camera_position[1] + camera_step
+        split_camera[split_player,1] = split_camera[split_player,1] + camera_step
       endif
     endif
-    if abs(camera_position[3] - wanted_z) < camera_step
-      camera_position[3] = wanted_z
+    if abs(split_camera[split_player,3] - wanted_z) < camera_step
+      split_camera[split_player,3] = wanted_z
     else
-      if camera_position[3] > wanted_z
-        camera_position[3] = camera_position[3] - camera_step
+      if split_camera[split_player,3] > wanted_z
+        split_camera[split_player,3] = split_camera[split_player,3] - camera_step
       else
-        camera_position[3] = camera_position[3] + camera_step
+        split_camera[split_player,3] = split_camera[split_player,3] + camera_step
       endif
     endif
+
+    camera_position[1] = split_camera[split_player,1]
+    camera_position[2] = split_camera[split_player,2]
+    camera_position[3] = split_camera[split_player,3]
     
     ' do this _after_ having moved the camear
-    lvx = camera_position[1] - target_x
-    lvy = camera_position[2] - target_y
-    lvz = camera_position[3] - target_z
+    lvx = split_camera[split_player,1] - target_x
+    lvy = split_camera[split_player,2] - target_y
+    lvz = split_camera[split_player,3] - target_z
     mylen = sqrt(lvx*lvx+lvy*lvy*lvz*lvz)
 
     ' this returns in radians - convert to degrees first
@@ -713,6 +752,9 @@ sub drawscreen
 
     ' and the 3D representation
     call aps_rto()
+    if split_screen
+      call aps(LinesSprite(viewport_translate))
+    endif
     'dim foome3d[player_pos[p]*4-2, 4]
     dim foome3d[(player_pos[p]-1)*4, 4]
 
@@ -759,6 +801,9 @@ sub drawscreen
       ' return to origin before doing 3d things
       ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
       call aps_rto()
+      if split_screen
+        call aps(LinesSprite(viewport_translate_scaled))
+      endif
       call aps(IntensitySprite(player_intensity[p]))
       cycle_sprite[p] = aps(Lines3dSprite(lc_object))
       call SpriteClip(cycle_sprite[p], cycle_clippingRect)
@@ -772,12 +817,18 @@ sub drawscreen
   ' draw horizontal gridlines
   ' zig-zag these so we don't do long pen moves
   call aps_rto()
+  if split_screen
+    call aps(LinesSprite(viewport_translate))
+  endif
   call aps(IntensitySprite(floor_intensity))
   sprb = aps(Lines3dSprite(floor_b))
   call SpriteClip(sprb, clippingRect)
 
   ' and the vertical ones
   call aps_rto()
+  if split_screen
+    call aps(LinesSprite(viewport_translate))
+  endif
   sprc = aps(Lines3dSprite(floor_c))
   call SpriteClip(sprc, clippingRect)
 
