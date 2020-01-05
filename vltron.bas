@@ -50,7 +50,7 @@ options_sprite = { _
   { -100, -40,  "   THIRD PERSON" }, _
   { -100, -60,  "   LARGE ARENA" }, _
   { -100, -80,  "   NO DRIVERS" }, _
-  { -100, -100, "   CREDITS" } _
+  { -100, -100, "   CREDITS" }, _
   { -100, -120, "   NO STATUS" } _
 }
 credits_sprite = { _
