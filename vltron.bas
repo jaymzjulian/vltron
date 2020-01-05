@@ -42,7 +42,7 @@ menu_data = { _
   status_text _
 }
 
-menu_status = { 1, 1, 1, 1, 1, 1 }
+menu_status = { 1, 1, 1, 1, 1, 1, 1 }
 
 options_sprite = { _
   { -100, 0,    "-> START" }, _
