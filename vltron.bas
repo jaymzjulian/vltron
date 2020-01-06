@@ -68,6 +68,7 @@ credits_sprite = { _
 }
 menu_cursor = 1
 tfc = 0
+menu_zoom = 1
 in_menu = true
 
 
@@ -1039,7 +1040,12 @@ sub title_picture()
   call clearscreen()
   call ReturnToOriginSprite()
   ' display a SVG title screen first
-  call ScaleSprite(32)
+  ' zoom this in, too, so it looks cool!
+  call ScaleSprite(menu_zoom)
+  menu_zoom = menu_zoom + 2
+  if menu_zoom > 32
+    menu_zoom = 32
+  endif
   call IntensitySprite(64)
   call logo()
   call IntensitySprite(48)
@@ -1065,6 +1071,7 @@ sub do_credits()
 endsub
 
 sub do_menu()
+  menu_zoom = 1
   in_menu = true
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   while in_menu
