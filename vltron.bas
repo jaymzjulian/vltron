@@ -103,7 +103,7 @@ buffer_mode_preserve_refresh = 0
 
 ' show the low framerate demo - this will show a set of sprites to demonstrate
 ' playing 50fps music when running at sub-25fps vectrex rounds
-demo_mode = 1
+demo_mode = 0
 
 dim comp_buffer[14]
 dim cursor[14]
@@ -263,7 +263,7 @@ vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
 local_scale = 64.0 / vx_scale_factor
 cycle_local_scale = 64.0 /cycle_vx_scale_factor
-vx_frame_rate = 120
+vx_frame_rate = 400
 target_game_rate = 20
 debug_status = false
 
@@ -293,7 +293,7 @@ computer_only = { true, true, true, true }
 
 ' load our music from flash
 if music_enabled
-  call load_and_init("switchblade.ayc")
+  call load_and_init("vxtron.ayc")
 endif
 
 ayc_start_time = GetTickCount()
@@ -551,15 +551,16 @@ while game_is_playing do
 
   lft = GetTickCount() - last_begin
 
+  ' update our music routine!
+  if music_enabled
+    call update_music_vbi
+  endif
 
   ' draw until everything is drawn!
   overflowed = true
   broken = false
   ' why is this up here?  Because we can't call this until ayc_exit has been called, and that's going to cause us a
   ' a bad time!
-  if music_enabled
-    call update_music_vbi
-  endif
   while overflowed = true 
     overflowed = false
     f = GetTickCount()
@@ -1653,7 +1654,6 @@ endfunction
 sub title_picture()
   call clearscreen()
   if music_enabled
-    call CodeSprite(ayc_pokedata)
     call CodeSprite(ayc_init)
   endif
   call ReturnToOriginSprite()
@@ -1669,7 +1669,7 @@ sub title_picture()
   call IntensitySprite(48)
   call ReturnToOriginSprite()
   call ScaleSprite(64)
-  'call bg(tfc)
+  call bg(tfc)
   call ScaleSprite(32)
   tfc=tfc+1
   tfc = tfc mod 3
@@ -1679,16 +1679,33 @@ sub do_credits()
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   last_controls = controls
   while controls[1,3] = 0 or last_controls[1,3] = controls[1,3]
-  call title_picture()
-  call ReturnToOriginSprite()
-  call IntensitySprite(127)
-  call TextListSprite(credits_sprite)
+    ' one weird trick with ram - we shove the pokedata in _first_, then regen, them call the
+    ' main loop
+    if music_enabled
+      call ClearScreen()
+      call CodeSprite(ayc_pokedata)
+      call update_music_vbi
+      controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
+    endif
+
+    call title_picture()
+    call ReturnToOriginSprite()
+    call IntensitySprite(127)
+    for j = 1 to (Ubound(credits_sprite)-1) step 2
+      ' why this?  music!
+      call TextListSprite({ _
+          {credits_sprite[j,1], credits_sprite[j,2], credits_sprite[j,3]}, _
+          {credits_sprite[j+1,1], credits_sprite[j+1,2], credits_sprite[j+1,3]} _
+          })
+    next
     last_controls = controls
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   endwhile
 endsub
 
 sub do_menu()
+  ' this needs to be a big number of course ;)
+  call SetFrameRate(vx_frame_rate)
   menu_zoom = 1
   in_menu = true
   call ClearScreen()
@@ -1696,20 +1713,32 @@ sub do_menu()
   no_input_frames = 0
   demo_mode = false
   while in_menu
+    ' one weird trick with ram - we shove the pokedata in _first_, then regen, them call the
+    ' main loop
+    if music_enabled
+      call ClearScreen()
+      call CodeSprite(ayc_pokedata)
+      call update_music_vbi
+      controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
+    endif
+
+    ' main loop
     call title_picture()
     call ReturnToOriginSprite()
     call IntensitySprite(127)
-    if music_enabled
+    for j = 1 to Ubound(options_sprite)
+      ' why this?  music!
+      call TextListSprite({{options_sprite[j,1], options_sprite[j,2], options_sprite[j,3]}})
+      if music_enabled
+        call CodeSprite(ayc_playcode)
+      endif
       call CodeSprite(ayc_playcode)
-    endif
-    call TextListSprite(options_sprite)
+    next
+    
     if music_enabled
       call CodeSprite(ayc_exit)
     endif
     last_controls = controls
-    if music_enabled
-      call update_music_vbi
-    endif
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
     if controls[1,2] != last_controls[1, 2]
       ' dear gce, i hate the way everything on this console is upside down
