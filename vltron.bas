@@ -1775,9 +1775,15 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "THIRD PERSON" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     first_person = false
+    if computer_only[1] = true
+      split_screen = false
+    endif
   endif
   if menu_data[j][menu_status[j]] = "FIRST PERSON" or menu_data[j][menu_status[j]] = "FIRST PERSON SPLIT"
     first_person = true
+    if computer_only[1] = true
+      split_screen = false
+    endif
   endif
   if menu_data[j][menu_status[j]] = "FIRST PERSON SPLIT" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     split_screen = true
