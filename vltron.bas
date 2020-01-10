@@ -320,6 +320,12 @@ ai_time = 0
 clip_time = 0
 split_player = 1
 if demo_mode
+  if (rand() mod 2 = 0)
+    split_screen = false
+  else
+    split_screen = true
+  endif
+  
   game_started = true
 endif
 while game_is_playing do
