@@ -555,7 +555,8 @@ while game_is_playing do
   ' draw until everything is drawn!
   overflowed = true
   broken = false
-  ' why is this above here?  because we dont want to call this again if we didnt call ayc_exit yet!
+  ' why is this up here?  Because we can't call this until ayc_exit has been called, and that's going to cause us a
+  ' a bad time!
   if music_enabled
     call update_music_vbi
   endif
@@ -936,6 +937,7 @@ if demo_mode = false
   while done_waiting = false
     ' this is a hack for now until sprite management gets better
     on error call game_over_overflow
+    call update_music_vbi
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
     on error call 0
     if controls[1, 4] = 1 and controls[1,5] = 1
