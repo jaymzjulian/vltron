@@ -73,7 +73,7 @@ tfc = 0
 menu_zoom = 1
 in_menu = true
 demo_mode = false
-max_demo_frames = 300
+max_demo_frames = 600
 
 
 ' Allow for up to 1024 co-ords for each of the 4 players
