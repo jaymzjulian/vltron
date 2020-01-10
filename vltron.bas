@@ -293,8 +293,6 @@ if demo_mode = false
   call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
   call aps(IntensitySprite(127))
   text = aps(TextSprite("PRESS BUTTONS 1+2 TO START"))
-else
-  game_is_playing = true
 endif
 demo_frames = 0
 
@@ -321,6 +319,9 @@ frames_played = 0
 ai_time = 0
 clip_time = 0
 split_player = 1
+if demo_mode
+  game_started = true
+endif
 while game_is_playing do
   ' 1 eor 3 = 2
   ' 2 eor 3 = 1 :)
@@ -1136,8 +1137,8 @@ sub do_menu()
     endif
     no_input_frames = no_input_frames + 1
     call update_menu()
-    ' after 60s with no input, demo mode
-    if no_input_frames > 30*20
+    ' after some time with no input, demo mode
+    if no_input_frames > 300
       demo_mode = true
       computer_only = { true, true, true, true }
       return
