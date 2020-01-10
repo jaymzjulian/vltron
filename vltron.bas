@@ -1137,7 +1137,7 @@ sub do_menu()
     no_input_frames = no_input_frames + 1
     call update_menu()
     ' after 60s with no input, demo mode
-    if no_input_frames > 60*20
+    if no_input_frames > 30*20
       demo_mode = true
       computer_only = { true, true, true, true }
       return
