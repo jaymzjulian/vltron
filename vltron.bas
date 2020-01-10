@@ -1134,7 +1134,7 @@ sub do_menu()
       last_controls = controls
       no_input_frames = 0
     endif
-    no_input_frames += 1
+    no_input_frames = no_input_frames + 1
     call update_menu()
     ' after 60s with no input, demo mode
     if no_input_frames > 60*20
