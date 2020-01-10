@@ -349,13 +349,15 @@ while game_is_playing do
   if status_enabled
     ctick = GetTickCount()
     fps_val = 960.0 / (ctick - last_frame_time) 
-    status_display[1,3] = "FPS: "+Int(fps_val) + " ("+ (ctick - last_frame_time) +"T)"
     if debug_status
       vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
+      status_display[1,3] = "FPS: "+Int(fps_val) + " ("+ (ctick - last_frame_time) +"T)"
       status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%"+" ("+wait_for_frame_time+"T)"
       status_display[3,3] = "LAST REDRAW: "+rdt+"T"
       status_display[4,3] = "AI: "+ai_time+"T"
       status_display[5,3] = "CLIP: "+clip_time+"T"
+    else
+      status_display[1,3] = "FPS: "+Int(fps_val)
     endif
     last_frame_time = ctick
   endif
