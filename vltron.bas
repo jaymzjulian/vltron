@@ -1,4 +1,16 @@
+'
+' VxTron32 (c) 2020, Jaymz Julian
+' For the vectrex32 platform
+'
+
+' globals for gameplay :)
+music_enabled = true
+
+' ----------------------------------------
 ' title screen globals
+' ----------------------------------------
+
+
 control_options = { _
   "ONE PLAYER", _
   "TWO PLAYERS - ONE CONTROLLER", _
@@ -75,7 +87,167 @@ in_menu = true
 demo_mode = false
 max_demo_frames = 450
 
+' ----------------------------------------------------------------------
+' AYC player globals - these are copied from the ayc_play repository
+' don't try and update them here ;)
+' ----------------------------------------------------------------------
+' if this is 1, we call Sound, if this is 0, we call FillBuffer, and
+' play via the codesprite
+buffer_mode = 1
 
+' should we use IRQ based timing, or Poke based timing?
+irq_mode = 0
+
+' do we wait for the next frame to be "due" before we continue?
+buffer_mode_preserve_refresh = 0
+
+' show the low framerate demo - this will show a set of sprites to demonstrate
+' playing 50fps music when running at sub-25fps vectrex rounds
+demo_mode = 1
+
+dim comp_buffer[14]
+dim cursor[14]
+' our data file
+dim ay_buffer_sizes[15]
+dim ay_buffer_offsets[15]
+' set  some player constants
+dim last_flags[14]
+dim comp_flags[14]
+dim coffset[14]
+dim poffset[14]
+dim premaining[14]
+dim ayc_duration
+dim ay_buffer_data
+dim ayc_duration
+dim played_frames
+dim ay_data_length
+' drop this if you're only doing 2 channels, leaving one for sound effects
+max_regs = 14
+
+if buffer_mode = 1
+  '--------------------------------------------------------------------'
+  ' This is only required if buffer_mode is set to 1 - you can save a few byres of ram by excluding it if you want, otherwise
+  ' number of buffers.  
+  '
+  ' Currently, we non-optionally consume 70 bytes of dpram per buffer - so 4 buffers would be 280 bytes of dpram. 
+  buffer_count = 4
+  ' rate of playback - 50hz by default...
+  player_rate = 50
+  ' This is almost certainly wrong/destructive!
+  ' but is.... probably enough?
+  dualport_return = 7
+  dualport_status = 8
+  dualport_flag = 9
+  ' you'll need to allow for max_regs*buffer_count worth of iram at this location 
+  ' if this is the only weird thing you're using, c882 should be fine.  c880 is better, but doens't work
+  ' on all v32 firmware revisions right now....
+  buffer_location = $c882
+  buffer_base = $c884
+  ' buffers are 14*2 + 1 bytes long
+  buffer_end = buffer_base + (buffer_count - 1) * 29
+  ' add an extra buffer_end for this, because of that way it's calculated...
+  if irq_mode = 1
+    flag_loc = buffer_end + 29
+  else
+    flag_loc = dualport_flag
+  endif
+  ayc_ticked = 0
+  player_code_loc = flag_loc + 2
+  player_jmp = player_code_loc + 10
+
+	game_frame_count = 0
+
+  ' below here is not, for the most part, user servicable :)
+  via_rate = 1500000 / player_rate 
+  tick_rate = 960 / player_rate
+  print "AYC: VIA Rate is "+via_rate+" cycles"
+  print "AYC: Tick Rate is "+tick_rate+" cycles"
+  current_buffer = 0
+  ' we use this being negative to represent first frame
+  ayc_buffer_played = -1
+	ayc_dp_sequence = 254
+  dim ayc_pokedata[max_regs*5*buffer_count]
+  dim ay_output_data[buffer_count, max_regs*2]
+  '--------------------------------------------------------------------'
+  ' should be in hex format, but for now this is what we get!
+  ' the listing for this is an other file within the github, but I built it with 
+  ' asm80.com :)
+  '--------------------------------------------------------------------'
+  ' there are two bits of code here:
+  ' a) the irq hander - this just sets a flag, to avoid messing up line drawing
+  ' b) the actual player code itself - this is called outside, so that we know we're not drawing at the time
+  '
+  ' lines 1-3 are the irq handler
+  ' rest is plaer
+  '
+  ' first line: check if we play ;)
+  ' then next overflow check
+  ' thjen  call sound_bytes_x, increment dualport return
+  ' then incremener buffer pointer
+  ' then finally an RTS ;)
+  '
+  ' orig code is in buffer.a09 with comments
+  '
+  ' we acutally shove the main playcode into vectrex ram to try and save ourselves some dpram....
+  ayc_playcode = { $bd, player_jmp / 256, player_jmp mod 256 }
+  internal_ayc_playcode = { _
+     $cc, via_rate mod 256, via_rate / 256, $fd, $d0, $08, _
+     $7c, flag_loc / 256, flag_loc mod 256, _
+     $3b, _
+     $b6, flag_loc / 256, flag_loc mod 256, $81, $00, $27, $25, _
+     $7a, flag_loc / 256, flag_loc mod 256, _
+     $b6, dualport_return / 256, dualport_return mod 256, $81, buffer_count, $27, $1b, _
+     $FE, buffer_location / 256, buffer_location mod 256, $BD, $F2, $7D, $7c, dualport_return / 256, dualport_return mod 256, _
+     $fc, buffer_location / 256, buffer_location mod 256, $c3, $00, $1d, $10, $83, buffer_end / 256, buffer_end mod 256,  _
+                        $2f, $03, $cc, buffer_base / 256, buffer_base mod 256, $fd, buffer_location / 256, buffer_location mod 256, _
+     $39 }
+
+  '--------------------------------------------------------------------'
+  ' this sets up the timer we need to keep time on the VX side...
+  ' this will be modified by the player to set it to what's remaining for the first
+  ' vblank that we need.  it should be called as early as posisble during your dualport config
+  '
+  ' It also resets the dualport_return register to 0 - that register ends up containing how many frames were acutally played!
+  '--------------------------------------------------------------------'
+  ' 1) clear dualport_return
+  ' 2) clear play flag
+  ' 3) 
+  ' 3) set timer b to the remaining time untilk music
+  if irq_mode = 1
+  ayc_init = { $86, $00, $b7, dualport_return / 256, dualport_return mod 256, _
+               $86, $00, $b7, flag_loc / 256, flag_loc mod 256, _
+              $1c, $ef, _
+              $86, $a0, $b7, $d0, $0e, _
+              $cc, $0, $2, $fd, $d0, $08 }
+  else
+    ' in non-irq mode, we ignore the code that actually sets upo the IRQ - we're going
+    ' to push in data a different way...
+    ayc_init = { $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
+  endif
+  'ayc_init = { $cc, $30, $75, $fd, $d0, $08, $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
+
+  '--------------------------------------------------------------------
+  ' this resets the VIA at the end, so that wait_recal doens't wait - this should be the last thing you call.
+	' note that, in VIA buffered mode, all it does is update dualport_status to the current sequence semaphore
+	' without that, playback is.... weird due to locking...
+  '--------------------------------------------------------------------
+  ' first line is: lda #sequence, sta $dualport_status
+  ' in betten turn of finterrupts again
+	' second line is: ldd #$100, std $d008 (remember: endian is reversed)
+	' which should set timer b to "almost nothing"
+  if irq_mode = 1
+  ayc_exit = { $86, ayc_dp_sequence, $b7, dualport_status / 256, dualport_status mod 256, _
+                $1a, $10, _
+                $86, $80, $b7, $d0, $0e, _
+	  					 $cc, $1, $0, $fd, $d0, $08}
+  else
+  ayc_exit = { $86, ayc_dp_sequence, $b7, dualport_status / 256, dualport_status mod 256 }
+  endif
+endif
+
+' ----------------------------------------------------------------------
+' The Game
+' ----------------------------------------------------------------------
 ' Allow for up to 1024 co-ords for each of the 4 players
 dim player_x[4,1024]
 dim player_y[4,1024]
@@ -118,6 +290,13 @@ viewport_translate_scaled = {{MoveTo, 0, half_screen_scaled }}
 
 first_person = false
 computer_only = { true, true, true, true }
+
+' load our music from flash
+if music_enabled
+  call load_and_init("switchblade.ayc")
+endif
+
+ayc_start_time = GetTickCount()
 
 
 x_move = { 0, 1, 0, -1 }
@@ -376,6 +555,10 @@ while game_is_playing do
   ' draw until everything is drawn!
   overflowed = true
   broken = false
+  ' why is this above here?  because we dont want to call this again if we didnt call ayc_exit yet!
+  if music_enabled
+    call update_music_vbi
+  endif
   while overflowed = true 
     overflowed = false
     f = GetTickCount()
@@ -428,7 +611,8 @@ while game_is_playing do
       'print "starting at sprite",end_sprite
 
       ' skip sprites 1 and 2, since they are our scale and the first RTO
-      for sp = 3 to end_sprite
+      ' also skip the music init sprites
+      for sp = 5 to end_sprite
         call SpriteEnable(all_sprites[sp], false)
       next
     endif
@@ -808,6 +992,7 @@ endfunction
 
 ' special one for return to origin, so we can seek it
 function aps_rto()
+  call aps(CodeSprite(ayc_playcode))
   total_objects = total_objects + 1
   all_sprites[total_objects] = ReturnToOriginSprite()
   all_origins[total_objects] = true
@@ -823,11 +1008,18 @@ sub drawscreen
   '
   call ClearScreen
   call SetFrameRate(vx_frame_rate)
+
   total_objects = 0
   call cameraTranslate(camera_position)
 
   call aps(IntensitySprite(127))
   call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
+  
+  ' ayc init :)
+  if music_enabled
+    call aps(CodeSprite(ayc_pokedata))
+    call aps(CodeSprite(ayc_init))
+  endif
   
   ' status display
   call aps_rto()
@@ -940,9 +1132,399 @@ sub drawscreen
   endif
   sprc = aps(Lines3dSprite(floor_c))
   call SpriteClip(sprc, clippingRect)
+  call aps(CodeSprite(ayc_exit))
 
 endsub
 
+'--------------------------------------------------------------
+' The AYC player code - this comes from teh ayc_play 
+'-------------------------------------------------------------- 
+sub ayc_update_timer
+  current_tick = GetTickCount() - ayc_start_time 
+  music_target = (current_tick / 960.0) * player_rate + 1
+  to_tick = int(music_target) - ayc_ticked
+  if to_tick > 0
+    ayc_ticked = ayc_ticked + 1
+    call Poke(flag_loc, Peek(flag_loc)+1)
+  endif
+endsub
+
+' this function is only used in buffer mode :)
+' the algorythm is:
+' 0) update ayc_buffer_played from what actually got played last frame... this needs to be done first so we
+'    know where we are!
+' 1) get where we SHOULD be from the vectrex32 tick counter, and convert that into frames (in music_target)
+' 2) compare that to where we are (in ayc_buffer_played), which is already in frames
+' 3) set wait_ time to the difference between these, which since it's constantly playing, SHOULD be only the 
+'    fractional part
+' 4) shove that into the VIA countdown register 2 that's normally used for vx refresh
+sub update_music_vbi
+  ayc_tick = GetTickCount()
+  ayc_played_this_frame = 0
+  if ayc_buffer_played >= 0 
+		' wait for the dualport to have returned
+		' why is this a sequence?  because if not, bad things happen in the bathroom...
+		' once we've hit it, we update the codesprite to chang the sequence for the next run, so that we
+		' don't lose track	
+		while Peek(dualport_status) != ayc_dp_sequence
+      if irq_mode = 0
+        call ayc_update_timer
+      endif
+		endwhile
+    'print "endframe"
+    ' reset benchmark counter once we've synced ;)
+    ayc_tick = GetTickCount()
+		ayc_dp_sequence = (ayc_dp_sequence + 4) mod 256
+		ayc_exit[2] = ayc_dp_sequence
+	  ' fill any used buffers with new sound data
+  	ayc_played_this_frame = Peek(dualport_return)
+    for i = 1 to ayc_played_this_frame
+      call play_that_music
+    next
+    ayc_buffer_played = ayc_buffer_played + ayc_played_this_frame
+  	'print "Played "+ayc_played_this_frame+" full "+ayc_buffer_played
+  else
+    ayc_buffer_played = 0
+  endif
+
+
+	if buffer_mode_preserve_refresh = 1
+		target_tick = (game_frame_count * 960) / GetFrameRate()
+  	while (GetTickCount() - ayc_start_time) < target_tick
+		endwhile
+		game_frame_count = game_frame_count + 1
+	endif
+
+
+  ' fix the IRQ timing
+  if irq_mode = 1
+    ' This is all terrible and absolutely should
+    ' NOT be fpmath, which is almost certainly slow as hell.  But it also might not be
+    ' worht optimizing.... 
+    current_tick = GetTickCount() - ayc_start_time 
+    ' where should be for the _next_ frame
+    music_target = (current_tick / 960.0) * player_rate + 1
+    ' ... vs where are we right now...
+    played_to = ayc_buffer_played
+
+
+    ' music_target _SHOULD_ be ahead... as a general rule - the player is _triggered_ on the x.00 tick,
+    ' and so music target should, as a general rule, be above that - and we're waiting for the next whole
+    ' number to tick over....
+    wait_time =  played_to - music_target
+
+    ' wait_time gets multiplied by via_wait - it should be fractional, so this should work out....
+    wait_time = wait_time * via_rate
+    wait_time = Int(wait_time)
+    if wait_time < 2
+      wait_time = 2
+    endif
+    if wait_time > 65535
+      wait_time = 65535
+    endif
+    
+    print "AYC: (last: "+ayc_played_this_frame+") music target is "+music_target+" for tick "+current_tick, " vs " + played_to + " wait_time: "+wait_time
+
+    ' shove that wait_time in the codesptie for the VIA, so we wait for that
+    ayc_init[19] = wait_time mod 256
+    ayc_init[20] = wait_time / 256
+  endif
+  ' benchmark
+  ayc_tick = GetTickCount() - ayc_tick
+endsub
+
+' generate a codesprite with lda #imm, sta buffer_base+offset
+sub generate_ayc_pokedata_codesprite()
+  addr = buffer_base
+  offset = 1
+  for b = 1 to buffer_count
+    for r = 1 to max_regs
+        ' incr addr to skip channel set
+        addr = addr + 1
+        ' lda_imm
+        ayc_pokedata[offset] = $86
+        offset = offset + 1
+        ' this will be filled in later!
+        ayc_pokedata[offset] = (r-1)
+        offset = offset + 1
+        ' sta_abs, hi, lo
+        ayc_pokedata[offset] = $b7
+        offset = offset + 1
+        ayc_pokedata[offset] = (addr / 256) mod 256
+        offset = offset + 1
+        ayc_pokedata[offset] = addr mod 256
+        offset = offset + 1
+        ' incr addr
+        addr = addr + 1
+    next
+    ' skip the $ff
+    addr = addr + 1
+  next
+endsub
+
+sub fill_buffer(outregs)
+  for r = 1 to 14
+    ' 5 bytes per "reg"
+    ' our write is at +6 
+    ' + 29*5*current_buffer -> buf ptr (the other part is the $ff) (2 x per reg + $ff)
+    ' +1 for gsbasic
+    'print "r:"+r+"  addr:"+((((r-1)*5)+1)+(14*5*current_buffer)+1)
+    ayc_pokedata[(((r-1)*5)+1)+(14*5*current_buffer)+1] = outregs[r,2]
+  next
+  current_buffer = (current_buffer + 1) mod buffer_count
+endsub
+
+
+sub load_and_init(filename)
+  if buffer_mode = 1
+    dim pd[2]
+    call clearscreen()
+    call TextSprite("AYC Loader")
+    call pokeRAM(buffer_location, (buffer_base / 256) mod 256)
+    call pokeRAM(buffer_location+1, buffer_base mod 256)
+    ' set up IRQ jmp
+    call pokeRAM($cbf8, $7e)
+    call pokeRAM($cbf9, (player_code_loc / 256) mod 256)
+    call pokeRAM($cbfa, player_code_loc mod 256)
+    call pokeRAM(flag_loc, 0)
+    for j = 1 to Ubound(internal_ayc_playcode)
+      call pokeRAM(player_code_loc+(j-1), internal_ayc_playcode[j])
+    next
+    addr = buffer_base
+    for b = 1 to buffer_count
+      for reg = 1 to 14
+        for v = 1 to 2
+          call pokeRAM(addr, reg-1)
+          addr = addr + 1
+        next
+      next
+      call pokeRAM(addr, $ff)
+      addr = addr + 1
+    next
+    ' why do i need two of these?  If I have one, it doens't seem to work at all.....
+    ' I have no idea what i'm doing wrong :)
+    controls = WaitForFrame(JoystickNone, Controller2, JoystickNone)
+    'call Peek(buffer_location, 2, pd)
+    controls = WaitForFrame(JoystickNone, Controller2, JoystickNone)
+    call clearscreen()
+    'while pd[1] = 0
+    'endwhile
+    'data = pd[2]
+    'print data
+  endif
+  ' load the AYC file
+  fh = fopen(filename, "rb")
+  played_frames = 0
+  ayc_duration = fgetc(fh) + fgetc(fh)*256
+  header_offset = 0
+  print "AYC: Duration ",ayc_duration," frames"
+  for reg = 1 to 14
+    ay_buffer_sizes[reg] = fgetc(fh)
+    if ay_buffer_sizes[reg] = 1
+      comp_buffer[reg] = ByteArray(256)
+    else
+      comp_buffer[reg] = ByteArray(1024)
+    endif
+    ay_buffer_offsets[reg] = fgetc(fh) + fgetc(fh)*256 
+    ' correct for relative offset
+    ay_buffer_offsets[reg] = ay_buffer_offsets[reg]+(reg-1)*3+4
+    if reg = 1
+      header_offset = ay_buffer_offsets[reg] 
+    endif
+    ' gsbasic fix
+    ay_buffer_offsets[reg] = ay_buffer_offsets[reg] - header_offset
+    print "AYC: Reg ",reg," buffer size ",ay_buffer_sizes[reg]," @ ",ay_buffer_offsets[reg]
+  next
+
+  ' init our flags
+  call restart_music
+
+  boffset = 1
+  fl = 0
+  print "AYC: Skipping from ",ftell(fh)," to ",ay_buffer_offsets[1]+header_offset
+  while ftell(fh) != (ay_buffer_offsets[1]+header_offset)
+    call fgetc(fh)
+  endwhile
+
+  ' read the remainign bytes into the file - we otherwise have buffer pointers...
+  i = ftell(fh)
+  ay_buffer_data = fread(10000, fh)
+  ay_data_length = ftell(fh) - i
+
+  ' fix the buffer pointers?
+  for reg = 1 to 14
+    ' now read the buffer data - until next buffer offset or EOF
+    ' this fixes later the gsbasic's dim is alays start at 1 thing
+    ay_buffer_offsets[reg] = ay_buffer_offsets[reg] + 1
+  next
+
+  print "AYC: Read ",ftell(fh),"bytes sucessfully"
+  
+  ' fill our initial buffers and generate our codesprite
+  if buffer_mode = 1
+    ' generate the data loader
+    call generate_ayc_pokedata_codesprite()
+    call CodeSprite(ayc_pokedata)
+    for i = 1 to buffer_count
+      call play_that_music
+    next
+  endif
+endsub
+
+sub restart_reg(reg)
+    last_flags[reg] = 0
+    comp_flags[reg] = 0
+    poffset[reg] = 0
+    coffset[reg] = 0
+    cursor[reg] = 0
+    premaining[reg] = 0
+endsub
+
+sub restart_music
+  print "AYC: Restart"
+  played_frames = 0
+    ' init our flags here too
+  for reg = 1 to max_regs
+    call restart_reg(reg)
+  next
+endsub
+
+function read_with_coffset(reg)
+  if (ay_buffer_offsets[reg] + coffset[reg]) > ay_data_length
+    return 0
+  endif
+  if reg < max_regs and (ay_buffer_offsets[reg] + coffset[reg]) >= ay_buffer_offsets[reg+1]
+    return 0
+  endif
+  return ay_buffer_data[ay_buffer_offsets[reg] + coffset[reg]] 
+endfunction
+
+sub play_that_music
+  dim outregs[max_regs, 2]
+  played_frames = played_frames + 1
+  ' reset the data if we're at 0
+  if played_frames >= ayc_duration
+    call restart_music
+  endif
+
+  ' play loop
+  for reg = 1 to max_regs
+    ' if we're not in a pattern, process next byte
+    if premaining[reg] = 0
+      ' if the high bit is not set, this is direct data - otherwise it is
+      ' a sequence pointer
+      if (comp_flags[reg] & 128) = 0
+        ' we're direct data - shove it in the AY!
+        'print reg," reading from ",ay_buffer_offsets[reg] + coffset[reg]
+        my_data = read_with_coffset(reg)
+        coffset[reg] = coffset[reg] + 1
+        outregs[reg, 1] = reg - 1
+        outregs[reg, 2] = my_data
+      
+        ' shove it in the buffer so we can get it back...
+        comp_buffer[reg][cursor[reg]+1] = my_data
+        cursor[reg] = cursor[reg] + 1
+        cursor[reg] = cursor[reg] mod (ay_buffer_sizes[reg]*256)
+
+      else
+        ' 8 bits for length - but multiplied by ay_buffer_sizes[reg]
+        ' this is negated - but why?
+        premaining[reg] = 256-read_with_coffset(reg)
+        coffset[reg] = coffset[reg] + 1
+
+        ' depending on size, 8 or 16bits for offset
+        poffset[reg] = read_with_coffset(reg)
+        coffset[reg] = coffset[reg] + 1
+        if ay_buffer_sizes[reg] != 1
+          poffset[reg] = poffset[reg] + read_with_coffset(reg) * 256
+          coffset[reg] = coffset[reg] + 1
+        endif
+        if poffset[reg] > 256*ay_buffer_sizes[reg]
+          print "FAIL: ",reg," tries to set poffset of ",poffset[reg], " coffset=",coffset[reg]
+          while true
+            a=1
+          endwhile
+        endif
+        ' wrap 0
+        if premaining[reg] = 0
+          premaining[reg] = 256
+        endif
+      endif
+      ' do we have a bitshift in gsbasic?  use it here!
+      ' do this before the re-read, so the top bit is always
+      ' our relevant one
+      comp_flags[reg] = (comp_flags[reg] * 2) & 255
+      ' every 8 frames, we grab new flags
+      if last_flags[reg] = 0
+        comp_flags[reg] = read_with_coffset(reg)
+        coffset[reg] = coffset[reg] + 1
+        'print reg," -> read flags ",comp_flags[reg]
+      endif
+      ' This should be an 'and 7', but i had weirdness with that!
+      last_flags[reg] = (last_flags[reg] + 1) & 7
+    ' process a pattern -
+    ' as far as I can tell from the ayc code, patterns can NOT be nested, which 
+    ' makes sense since this is originally for z80, and you don't want to risk
+    ' blowing the stack
+    endif
+
+    ' why is this not an else to the above?  because if it was literally just set, it still needs to run this frame!
+    if premaining[reg] > 0
+      'print premaining[reg]," -> ",poffset[reg]
+      ' we use poffset here, and repeat it until we reach the end
+      
+      ' this comes from the buffer, according ot the java code...
+      'my_data = ay_buffer_data[ay_buffer_offsets[reg] + poffset[reg]]
+      'print "reg -> ",reg," -> ",poffset[reg]+1
+      my_data = comp_buffer[reg][poffset[reg]+1]
+      
+      ' shove it in the buffer so we can get it back
+      comp_buffer[reg][cursor[reg]+1] = my_data
+      cursor[reg] = cursor[reg]+1
+      cursor[reg] = cursor[reg] mod  (ay_buffer_sizes[reg]*256) 
+
+      poffset[reg] = poffset[reg] + 1
+      poffset[reg] = poffset[reg] mod  (ay_buffer_sizes[reg]*256) 
+      premaining[reg] = premaining[reg] - 1
+      outregs[reg, 1] = reg - 1
+      outregs[reg, 2] = my_data
+    endif
+  next
+  ' these should only ever be 0:16
+  if reg = 2 or reg = 4 or reg = 6 
+    if outregs[reg][2] > 16
+      print "FAIL: reg ",reg," has value ",outregs[reg], " which is too big for its datatype"
+       while 0 = 0
+          a = 1
+       endwhile
+    endif
+  endif
+  ' these 0:32
+  if reg = 9 or reg = 10 or reg = 11
+    if outregs[reg][2] > 32
+      print "FAIL: reg ",reg," has value ",outregs[reg], " which is too big for its datatype"
+       while 0 = 0
+        a = 1
+       endwhile
+    endif
+  endif
+  'print outregs
+  if buffer_mode = 0
+    call Sound(outregs)
+  else
+    call fill_buffer(outregs)
+  endif
+endsub
+
+' Stole this function from Malban's lightpen test - thanks!
+sub pokeRAM(where, what)
+   if what<0 then
+    what = 256 +what
+   endif
+
+   poke_RAM = {$86, what, $b7, (where/256) MOD 256, where MOD 256}
+   call CodeSprite(poke_RAM)
+endsub
 
 '--------------------------------------------------------------
 ' The 3d model of the lightcycle
@@ -1068,6 +1650,10 @@ endfunction
 ' -------------------------------------------------------------------------
 sub title_picture()
   call clearscreen()
+  if music_enabled
+    call CodeSprite(ayc_pokedata)
+    call CodeSprite(ayc_init)
+  endif
   call ReturnToOriginSprite()
   ' display a SVG title screen first
   ' zoom this in, too, so it looks cool!
@@ -1081,7 +1667,7 @@ sub title_picture()
   call IntensitySprite(48)
   call ReturnToOriginSprite()
   call ScaleSprite(64)
-  call bg(tfc)
+  'call bg(tfc)
   call ScaleSprite(32)
   tfc=tfc+1
   tfc = tfc mod 3
@@ -1111,8 +1697,17 @@ sub do_menu()
     call title_picture()
     call ReturnToOriginSprite()
     call IntensitySprite(127)
+    if music_enabled
+      call CodeSprite(ayc_playcode)
+    endif
     call TextListSprite(options_sprite)
+    if music_enabled
+      call CodeSprite(ayc_exit)
+    endif
     last_controls = controls
+    if music_enabled
+      call update_music_vbi
+    endif
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
     if controls[1,2] != last_controls[1, 2]
       ' dear gce, i hate the way everything on this console is upside down
@@ -1271,6 +1866,9 @@ sub  logo()
     { DrawTo , 59.0648091471 , 534.392692801 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
     {MoveTo, 274.695770814 , 358.194136097 }, _
@@ -1340,6 +1938,9 @@ sub  logo()
     { DrawTo , 325.46779087 , 425.501129811 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
     {MoveTo, 59.0648091471 , 534.392692801 }, _
@@ -1409,6 +2010,9 @@ sub  logo()
     { DrawTo , 274.695770814 , 358.194136097 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
     {MoveTo, 325.46779087 , 425.501129811 }, _
@@ -1553,6 +2157,9 @@ sub  bg(tfc)
     { DrawTo , 10.5014235412 , -21.4005248028 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
     {MoveTo, 48.4816030337 , -13.4687177722 }, _
@@ -1622,6 +2229,9 @@ sub  bg(tfc)
     { DrawTo , -51.0480461361 , -49.3158534617 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   endif
   if tfc=1
@@ -1693,6 +2303,9 @@ sub  bg(tfc)
     { DrawTo , -43.6754795305 , 23.2218799319 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
     {MoveTo, 10.5014235412 , -21.4005248028 }, _
@@ -1762,6 +2375,9 @@ sub  bg(tfc)
     { DrawTo , 48.4816030337 , -13.4687177722 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   endif
   if tfc=2
@@ -1833,6 +2449,9 @@ sub  bg(tfc)
     { MoveTo , 90.0839431712 , -133.662055082 } _
   })
 
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+  endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
     {MoveTo, -43.6754795305 , 23.2218799319 }, _
