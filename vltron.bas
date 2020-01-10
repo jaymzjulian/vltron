@@ -8,7 +8,9 @@ control_options = { _
 
 view_options = { _
   "THIRD PERSON", _
-  "FIRST PERSON" _
+  "FIRST PERSON", _
+  "THIRD PERSON SPLIT", _
+  "FIRST PERSON SPLIT" _
 }
 
 arena_options = { _
@@ -70,6 +72,8 @@ menu_cursor = 1
 tfc = 0
 menu_zoom = 1
 in_menu = true
+demo_mode = false
+max_demo_frames = 300
 
 
 ' Allow for up to 1024 co-ords for each of the 4 players
@@ -282,10 +286,17 @@ next
 
 
 call drawscreen
-call aps_rto()
-call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
-call aps(IntensitySprite(127))
-text = aps(TextSprite("PRESS BUTTONS 1+2 TO START"))
+
+' FIXME: we're going to change this to a countdown... but still we'll init this countdown here
+if demo_mode = false
+  call aps_rto()
+  call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
+  call aps(IntensitySprite(127))
+  text = aps(TextSprite("PRESS BUTTONS 1+2 TO START"))
+else
+  game_is_playing = true
+endif
+demo_frames = 0
 
 print "--------------------------------------------"
 print "local_scale ",local_scale
@@ -562,6 +573,14 @@ while game_is_playing do
     last_controls = controls
   endif
 
+  ' quit demo mode on button press
+  if demo_mode = true
+    if controls[1, 4] = 1 or controls[1,3] = 1 or demo_frames > max_demo_frames
+      game_is_playing = false
+    endif
+    demo_frames = demo_frames + 1
+  endif
+
   ' if we're not playing yet, wait until we are!
   if game_started = false
     if controls[1, 4] = 1 and controls[1,3] = 1
@@ -715,21 +734,23 @@ while game_is_playing do
   clip_time = GetTickCount() - ctick
 endwhile
 
-print "hit game over"
-call ReturnToOriginSprite()
-call IntensitySprite(127)
-call TextSprite("GAME OVER PRESS 2+3")
-done_waiting = false
-while done_waiting = false
-  ' this is a hack for now until sprite management gets better
-  on error call game_over_overflow
-  controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
-  on error call 0
-  if controls[1, 4] = 1 and controls[1,5] = 1
-    done_waiting = true
-  endif
-endwhile
-print "restart!"
+if demo_mode = false
+  print "hit game over"
+  call ReturnToOriginSprite()
+  call IntensitySprite(127)
+  call TextSprite("GAME OVER PRESS 2+3")
+  done_waiting = false
+  while done_waiting = false
+    ' this is a hack for now until sprite management gets better
+    on error call game_over_overflow
+    controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+    on error call 0
+    if controls[1, 4] = 1 and controls[1,5] = 1
+      done_waiting = true
+    endif
+  endwhile
+  print "restart!"
+endif
 
 endwhile
 
@@ -1074,6 +1095,8 @@ sub do_menu()
   menu_zoom = 1
   in_menu = true
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
+  no_input_frames = 0
+  demo_mode = false
   while in_menu
     call title_picture()
     call ReturnToOriginSprite()
@@ -1096,6 +1119,7 @@ sub do_menu()
       if menu_cursor > Ubound(menu_data)
         menu_cursor = 1
       endif
+      no_input_frames = 0
     endif
     ' activate an option
     if controls[1, 3] != last_controls[1,3] and controls[1,3] = 1
@@ -1108,9 +1132,18 @@ sub do_menu()
       ' debounce!
       controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
       last_controls = controls
+      no_input_frames = 0
     endif
+    no_input_frames += 1
     call update_menu()
+    ' after 60s with no input, demo mode
+    if no_input_frames > 60*20
+      demo_mode = true
+      computer_only = { true, true, true, true }
+      return
+    endif
   endwhile
+
   ' activate evertything just in case
   for j = 1 to Ubound(menu_data)
     call menu_activate(j, true)
@@ -1133,11 +1166,14 @@ sub menu_activate(j, on_exit)
   if menu_data[j][menu_status[j]] = "COMPUTER ONLY"
     computer_only = { true, true, true, true }
   endif
-  if menu_data[j][menu_status[j]] = "THIRD PERSON"
+  if menu_data[j][menu_status[j]] = "THIRD PERSON" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     first_person = false
   endif
-  if menu_data[j][menu_status[j]] = "FIRST PERSON"
+  if menu_data[j][menu_status[j]] = "FIRST PERSON" or menu_data[j][menu_status[j]] = "FIRST PERSON SPLIT"
     first_person = true
+  endif
+  if menu_data[j][menu_status[j]] = "FIRST PERSON SPLIT" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
+    split_screen = true
   endif
 endsub
 
