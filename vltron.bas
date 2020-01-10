@@ -1103,6 +1103,7 @@ endsub
 sub do_menu()
   menu_zoom = 1
   in_menu = true
+  call ClearScreen()
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   no_input_frames = 0
   demo_mode = false
