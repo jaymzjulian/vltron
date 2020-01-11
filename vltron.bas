@@ -1104,6 +1104,7 @@ sub drawscreen
 
     ' and the 3D representation
     call aps_rto()
+    call aps(IntensitySprite(player_intensity[p]))
     if split_screen
       call aps(LinesSprite(viewport_translate))
     endif
@@ -1167,17 +1168,17 @@ sub drawscreen
   ' SHOULD be fine!
   call aps_rto()
   call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
-  call aps(IntensitySprite(127))
-  
+  call aps(IntensitySprite(floor_intensity))
   if split_screen
     call aps(LinesSprite(viewport_translate))
   endif
-  call aps(IntensitySprite(floor_intensity))
   sprb = aps(Lines3dSprite(floor_b))
   call SpriteClip(sprb, clippingRect)
 
   ' and the vertical ones
   call aps_rto()
+  call aps(IntensitySprite(floor_intensity))
+  call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
   if split_screen
     call aps(LinesSprite(viewport_translate))
   endif
