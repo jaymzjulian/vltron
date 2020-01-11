@@ -329,6 +329,7 @@ endif
 ayc_start_time = GetTickCount()
 
 
+player_count = 4
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 while true
@@ -416,7 +417,6 @@ next
 
 
 start_distance = 16
-player_count = 4
 map_x = 64 * local_scale
 map_y = 64 * local_scale
 gridlines_x = 8
