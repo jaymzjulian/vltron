@@ -133,7 +133,7 @@ if buffer_mode = 1
   ' number of buffers.  
   '
   ' Currently, we non-optionally consume 70 bytes of dpram per buffer - so 4 buffers would be 280 bytes of dpram. 
-  buffer_count = 4
+  buffer_count = 6
   ' rate of playback - 50hz by default...
   player_rate = 50
   ' This is almost certainly wrong/destructive!
@@ -634,9 +634,9 @@ while game_is_playing do
         call ayc_update_timer()
       endwhile
       'print "end_sprite: "+end_sprite+"/"+total_objects+" dpr:"+Peek(dualport_objreturn)
-      if Peek(dualport_objreturn) != end_sprite
-        bp
-      endif
+      'if Peek(dualport_objreturn) != end_sprite
+      ' bp
+      'endif
     endif
   endwhile
 
