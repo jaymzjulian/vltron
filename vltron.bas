@@ -22,6 +22,12 @@ control_options = { _
   "COMPUTER ONLY" _
 }
 
+cycle_options = { _
+  "TWO CYCLES", _
+  "FOUR CYCLES", _
+  "ONE CYCLE" _
+}
+
 view_options = { _
   "THIRD PERSON", _
   "FIRST PERSON", _
@@ -53,6 +59,7 @@ credits_text={"CREDITS"}
 menu_data = { _
   start_text, _
   control_options, _
+  cycle_options, _
   view_options, _
   arena_options, _
   driver_options, _
@@ -60,16 +67,17 @@ menu_data = { _
   status_text _
 }
 
-menu_status = { 1, 1, 1, 1, 1, 1, 1 }
+menu_status = { 1, 1, 1, 1, 1, 1, 1, 1 }
 
 options_sprite = { _
   { -100, 0,    "-> START" }, _
-  { -100, -20,  "   ONE PLAYER - CONTROLLER 1" }, _
-  { -100, -40,  "   THIRD PERSON" }, _
-  { -100, -60,  "   LARGE ARENA" }, _
-  { -100, -80,  "   NO DRIVERS" }, _
-  { -100, -100, "   CREDITS" }, _
-  { -100, -120, "   NO STATUS" } _
+  { -100, -15,  "   ONE PLAYER" }, _
+  { -100, -30,  "   THIRD PERSON" }, _
+  { -100, -45,  "   LARGE ARENA" }, _
+  { -100, -60,  "   NO DRIVERS" }, _
+  { -100, -75, "   CREDITS" }, _
+  { -100, -90, "   NO STATUS" }, _
+  { -100, -105, "   ETC" } _
 }
 credits_sprite = { _
   { -100, 90, "VLTRON BETA 1" }, _
@@ -79,10 +87,9 @@ credits_sprite = { _
   { -100, 30,  "MUSIC BY JAYMZ JULIAN" }, _
   { -100, 15,  "THANKS TO:" }, _
   { -100, 1,  " BOB ALEXANDER, FOR THE VEXTREX32 PLATFORM," }, _
-  { -100, -15,  "    MASSIVE HELP AND SUPPORT IN GETTING TO"},_
-  { -100, -30,  "    GRIPS WITH IT, AND FOR ADDING SEVERAL"},_
-  { -100, -45,   "    FEATURES AT MY REQUEST WHICH MADE THIS"},_
-  { -100, -60,  "    GAME POSSIBLE" } _
+  { -100, -15,  "    SUPPORT IN GETTING TO GRIPS WITH IT,"},_
+  { -100, -30,  "    AND FOR ADDING FEATURES WHICH MADE THIS"},_
+  { -100, -45,  "    GAME POSSIBLE" } _
 }
 menu_cursor = 1
 tfc = 0
@@ -513,6 +520,11 @@ if demo_mode
   else
     split_screen = true
   endif
+  if (rand() mod 2 = 0)
+    player_count = 2
+  else
+    player_count = 4
+  endif
   
   game_started = true
 endif
@@ -641,7 +653,7 @@ while game_is_playing do
       next
 
       ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
-      while Peek(dualport_objreturn) < end_sprite
+      while Peek(dualport_objreturn) < end_sprite or (broken and dualport_objreturn == 0)
         'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
         call ayc_update_timer()
       endwhile
@@ -1856,6 +1868,15 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "COMPUTER ONLY"
     computer_only = { true, true, true, true }
+  endif
+  if menu_data[j][menu_status[j]] = "FOUR CYCLES"
+    player_count = 4
+  endif
+  if menu_data[j][menu_status[j]] = "TWO CYCLES"
+    player_count = 2
+  endif
+  if menu_data[j][menu_status[j]] = "ONE CYCLE"
+    player_count = 1
   endif
   if menu_data[j][menu_status[j]] = "THIRD PERSON" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     first_person = false
