@@ -8,6 +8,8 @@ music_enabled = true
 title_enabled = true
 debug_status = false
 dualport_objreturn = 1
+'release_mode = true
+release_mode = false
 
 
 ' ----------------------------------------
@@ -268,8 +270,6 @@ dim x_move[4]
 dim y_move[4]
 lc_object = lightcycle()
 
-release_mode = true
-'release_mode = false
 
 vx_scale_factor = 128.0
 cycle_vx_scale_factor = 32.0
@@ -653,7 +653,7 @@ while game_is_playing do
       next
 
       ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
-      while Peek(dualport_objreturn) < end_sprite or (broken and dualport_objreturn == 0)
+      while Peek(dualport_objreturn) < end_sprite 
         'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
         call ayc_update_timer()
       endwhile
@@ -1045,17 +1045,17 @@ endfunction
 
 ' special one for return to origin, so we can seek it
 function aps_rto()
-  if music_enabled
-    call aps(CodeSprite(ayc_playcode))
-    'print "origin at "+(total_objects+1)
-    ' place a sync object here so that we can see where the music player is up to...
-    ' lda #total_objects, sta_zp dualport_objreturn
-    ' total_objects+1 due to the additional object that is us!
-    call aps(CodeSprite({$86, total_objects+1, $b7, dualport_objreturn / 256, dualport_objreturn mod 256}))
-  endif
   total_objects = total_objects + 1
   all_sprites[total_objects] = ReturnToOriginSprite()
   all_origins[total_objects] = true
+  if music_enabled
+    ' place a sync object here so that we can see where the music player is up to...
+    ' lda #total_objects, sta_zp dualport_objreturn
+    ' total_objects+1 due to the additional object that is us!
+    call aps(CodeSprite({$86, total_objects, $b7, dualport_objreturn / 256, dualport_objreturn mod 256}))
+    call aps(CodeSprite(ayc_playcode))
+    'print "origin at "+(total_objects+1)
+  endif
   return all_sprites[total_objects]
 endfunction
 
