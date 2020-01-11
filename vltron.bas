@@ -23,6 +23,14 @@ dualport_objreturn = 1
 'release_mode = true
 release_mode = false
 
+' optimization tunables - the reason we're using the larger scale factor on the gridlines is for
+' visual fidelity - i noticed that using smaller scale factors results in higher frame rates if you've got
+' short lines though.... buyt the cost is _huge_ extra DPRAM usage.  That having been said, the biggest dpram
+' user is the cycles, in any case... and the fidelity of a lower scale factor on the trails is terrible.  It honestly
+' looks awful....
+vx_scale_factor = 128.0
+cycle_vx_scale_factor = 32.0
+
 
 ' ----------------------------------------
 ' title screen globals
@@ -283,8 +291,6 @@ dim y_move[4]
 lc_object = lightcycle()
 
 
-vx_scale_factor = 128.0
-cycle_vx_scale_factor = 32.0
 local_scale = 64.0 / vx_scale_factor
 cycle_local_scale = 64.0 /cycle_vx_scale_factor
 vx_frame_rate = 400
@@ -685,13 +691,18 @@ while game_is_playing do
       if music_enabled
         ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
         tc=GetTickCount()
-        while Peek(dualport_objreturn) < return_sprite
+        abort_me = false
+        while Peek(dualport_objreturn) < return_sprite and abort_me = false
           'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
-          call ayc_update_timer()
           if GetTickCount()-tc > 960
-            print "stuck waiting for sprites to return :("
-            bp
+            print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
+            if release_mode
+              bp
+            else
+              abort_me = true
+            endif
           endif
+          call ayc_update_timer()
         endwhile
       endif
       'print "end_sprite: "+end_sprite+"/"+total_objects+" dpr:"+Peek(dualport_objreturn)
