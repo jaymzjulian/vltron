@@ -625,6 +625,8 @@ while game_is_playing do
         end_sprite = total_objects
       endif
 
+      orig_end = end_sprite
+
       'print "ses: "+end_sprite
       ' we have to align to return_to_origins here - otherwise
       ' we'll get pen drift.  To do this, we'll move _BOTH_ start sprite and
@@ -636,6 +638,20 @@ while game_is_playing do
       while all_origins[end_sprite+1] != true  and end_sprite > 1
         end_sprite = end_sprite - 1
       endwhile
+      return_sprite = end_sprite
+
+      ' special case: if we're the very last sprite that ran, then we acutally want to wait for the _previous_ RTO - this will 
+      ' cause a _little_ casternation with the music driver, but all will be generally well...
+      ' this is because we do RTO, then flag that we did it - but if the RTO got processed, but the flag didn't, we could not.
+      '
+      ' we can't just turn the RTO into a codepsrite, either, because RTO is a special case in the 3d object processing, which causes
+      ' a bug to not be triggerted :)
+      if return_sprite = orig_end and music_enabled
+        return_sprite = return_sprite - 1
+        while all_origins[return_sprite+1] != true  and return_sprite > 1
+          return_sprite = return_sprite - 1
+        endwhile
+      endif
       'print "ees: "+end_sprite
 
       'print all_origins[end_sprite]
@@ -652,11 +668,20 @@ while game_is_playing do
         call SpriteEnable(all_sprites[sp], false)
       next
 
-      ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
-      while Peek(dualport_objreturn) < end_sprite 
-        'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
-        call ayc_update_timer()
-      endwhile
+      ' if we're playing music, we need to wait for the code to finish and feed it timers before we return!
+      ' otherwise, the system will block at the new call of WaitForFrame and it'll all be sad
+      if music_enabled
+        ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
+        tc=GetTickCount()
+        while Peek(dualport_objreturn) < return_sprite
+          'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
+          call ayc_update_timer()
+          if GetTickCount()-tc > 960
+            print "stuck waiting for sprites to return :("
+            bp
+          endif
+        endwhile
+      endif
       'print "end_sprite: "+end_sprite+"/"+total_objects+" dpr:"+Peek(dualport_objreturn)
       'if Peek(dualport_objreturn) != end_sprite
       ' bp
@@ -1048,15 +1073,15 @@ function aps_rto()
   total_objects = total_objects + 1
   all_sprites[total_objects] = ReturnToOriginSprite()
   all_origins[total_objects] = true
+  r=all_sprites[total_objects]
   if music_enabled
     ' place a sync object here so that we can see where the music player is up to...
     ' lda #total_objects, sta_zp dualport_objreturn
     ' total_objects+1 due to the additional object that is us!
     call aps(CodeSprite({$86, total_objects, $b7, dualport_objreturn / 256, dualport_objreturn mod 256}))
     call aps(CodeSprite(ayc_playcode))
-    'print "origin at "+(total_objects+1)
   endif
-  return all_sprites[total_objects]
+  return r
 endfunction
 
 sub drawscreen
@@ -1195,6 +1220,7 @@ sub drawscreen
     call aps(LinesSprite(viewport_translate))
   endif
   sprc = aps(Lines3dSprite(floor_c))
+  call aps_rto()
   call SpriteClip(sprc, clippingRect)
   if music_enabled
     ' exit the music player and reset our objretur
