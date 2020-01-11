@@ -1147,13 +1147,13 @@ sub drawscreen
   next
   
   ' put these in a secod loop so they appear at the end of the display list...
-  call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
   for p = 1 to player_count
     if alive[p]
     if first_person = false or p != 1
       ' return to origin before doing 3d things
       ' we only ever display one cycle, for now!  maybe later we'll simplify it enough to display more...   
       call aps_rto()
+      call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
       if split_screen
         call aps(LinesSprite(viewport_translate_scaled))
       endif
