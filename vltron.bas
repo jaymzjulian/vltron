@@ -5,6 +5,9 @@
 
 ' globals for gameplay :)
 music_enabled = true
+title_enabled = true
+dualport_objreturn = 1
+
 
 ' ----------------------------------------
 ' title screen globals
@@ -135,9 +138,9 @@ if buffer_mode = 1
   player_rate = 50
   ' This is almost certainly wrong/destructive!
   ' but is.... probably enough?
-  dualport_return = 7
-  dualport_status = 8
-  dualport_flag = 9
+  dualport_return = 2
+  dualport_status = 3
+  dualport_flag = 4
   ' you'll need to allow for max_regs*buffer_count worth of iram at this location 
   ' if this is the only weird thing you're using, c882 should be fine.  c880 is better, but doens't work
   ' on all v32 firmware revisions right now....
@@ -290,6 +293,7 @@ viewport_translate_scaled = {{MoveTo, 0, half_screen_scaled }}
 
 first_person = false
 computer_only = { true, true, true, true }
+status_enabled = true
 
 ' load our music from flash
 if music_enabled
@@ -304,10 +308,10 @@ y_move = { 1, 0, -1, 0 }
 while true
 
 ' first things first, show the menu...
-call do_menu()
+if title_enabled
+  call do_menu()
+endif
 
-
-status_enabled = true
 player_direction = { 0, 2, 1, 3 }
 player_intensity = {127, 96, 64, 80 }
 alive = { true, true, true, true }
@@ -597,6 +601,7 @@ while game_is_playing do
         end_sprite = total_objects
       endif
 
+      'print "ses: "+end_sprite
       ' we have to align to return_to_origins here - otherwise
       ' we'll get pen drift.  To do this, we'll move _BOTH_ start sprite and
       ' end sprite back, on the grounds that if we half drew something, we should give it a 
@@ -604,19 +609,34 @@ while game_is_playing do
       '
       ' for end sprite, we want to stop one shy of the return to origin - we want
       ' the RTO to be executed!
-      while all_origins[end_sprite+1] = false  and end_sprite > 1
+      while all_origins[end_sprite+1] != true  and end_sprite > 1
         end_sprite = end_sprite - 1
       endwhile
+      'print "ees: "+end_sprite
 
       'print all_origins[end_sprite]
       'print all_origins[end_sprite+1]
       'print "starting at sprite",end_sprite
 
       ' skip sprites 1 and 2, since they are our scale and the first RTO
-      ' also skip the music init sprites
-      for sp = 5 to end_sprite
+      ' add one for the dualport_objreturn clear if needed
+      start_sprite = 3
+      if music_enabled
+        start_sprite = 4
+      endif
+      for sp = start_sprite to end_sprite
         call SpriteEnable(all_sprites[sp], false)
       next
+
+      ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
+      while Peek(dualport_objreturn) < end_sprite
+        'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
+        call ayc_update_timer()
+      endwhile
+      'print "end_sprite: "+end_sprite+"/"+total_objects+" dpr:"+Peek(dualport_objreturn)
+      if Peek(dualport_objreturn) != end_sprite
+        bp
+      endif
     endif
   endwhile
 
@@ -655,6 +675,9 @@ while game_is_playing do
   ' process!
   frames_played = frames_played + 1
   for p = 1 to player_count
+    if music_enabled
+      call ayc_update_timer()
+    endif
     if game_started and alive[p]
 
     require_update = 0
@@ -762,6 +785,9 @@ while game_is_playing do
   ' if require redraw, do it now
   if require_redraw and game_started 
     call drawscreen
+  endif
+  if music_enabled
+    call ayc_update_timer()
   endif
   
   if run_count > 0
@@ -996,6 +1022,13 @@ endfunction
 ' special one for return to origin, so we can seek it
 function aps_rto()
   call aps(CodeSprite(ayc_playcode))
+  if music_enabled
+    'print "origin at "+(total_objects+1)
+    ' place a sync object here so that we can see where the music player is up to...
+    ' lda #total_objects, sta_zp dualport_objreturn
+    ' total_objects+1 due to the additional object that is us!
+    call aps(CodeSprite({$86, total_objects+1, $b7, dualport_objreturn / 256, dualport_objreturn mod 256}))
+  endif
   total_objects = total_objects + 1
   all_sprites[total_objects] = ReturnToOriginSprite()
   all_origins[total_objects] = true
@@ -1020,6 +1053,7 @@ sub drawscreen
   
   ' ayc init :)
   if music_enabled
+    call aps(CodeSprite({$86, $00, $b7, dualport_objreturn/256, dualport_objreturn mod 256}))
     call aps(CodeSprite(ayc_pokedata))
     call aps(CodeSprite(ayc_init))
   endif
@@ -1135,7 +1169,10 @@ sub drawscreen
   endif
   sprc = aps(Lines3dSprite(floor_c))
   call SpriteClip(sprc, clippingRect)
-  call aps(CodeSprite(ayc_exit))
+  if music_enabled
+    ' exit the music player and reset our objretur
+    call aps(CodeSprite(ayc_exit))
+  endif
 
 endsub
 
@@ -1181,6 +1218,9 @@ sub update_music_vbi
 		ayc_exit[2] = ayc_dp_sequence
 	  ' fill any used buffers with new sound data
   	ayc_played_this_frame = Peek(dualport_return)
+    if ayc_played_this_frame == buffer_count
+      print "WARN: AYC buffer limit hit - consider increasing buffer size..."
+    endif
     for i = 1 to ayc_played_this_frame
       call play_that_music
     next
