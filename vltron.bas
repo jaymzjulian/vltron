@@ -6,6 +6,7 @@
 ' globals for gameplay :)
 music_enabled = true
 title_enabled = true
+debug_status = false
 dualport_objreturn = 1
 
 
@@ -126,6 +127,7 @@ dim played_frames
 dim ay_data_length
 ' drop this if you're only doing 2 channels, leaving one for sound effects
 max_regs = 14
+ayc_tick = 0
 
 if buffer_mode = 1
   '--------------------------------------------------------------------'
@@ -268,14 +270,13 @@ local_scale = 64.0 / vx_scale_factor
 cycle_local_scale = 64.0 /cycle_vx_scale_factor
 vx_frame_rate = 400
 target_game_rate = 20
-debug_status = false
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
 arena_size_x = 128
 arena_size_y = 128
 ' map_scale is based on a 128x128 arena
-map_scale = ((arena_size_x/192.0) / local_scale)
+map_scale = ((arena_size_x/96.0) * local_scale)
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 ' define where our horizins are
@@ -319,7 +320,7 @@ floor_intensity = 48
 wall_intensity = 48
 
 if debug_status
-dim status_display[5, 3]
+dim status_display[6, 3]
 else
 dim status_display[1, 3]
 endif
@@ -344,6 +345,10 @@ if debug_status
   status_display[5,1] = -255 * local_scale
   status_display[5,2] = 175 * local_scale
   status_display[5,3] = "CLIP: "
+  
+  status_display[6,1] = -255 * local_scale
+  status_display[6,2] = 165 * local_scale
+  status_display[6,3] = "AYC: "
 endif
 
 ' This is where in the static array the players are
@@ -483,8 +488,8 @@ print "--------------------------------------------"
 print "local_scale ",local_scale
 print "vx_scale_factor ",vx_scale_factor
 print "map_scale ",map_scale
-print "map_x ", map_x
-print "map_y ", map_y
+print "map_x ", map_x+" to "+(map_x+arena_size_x*map_scale)
+print "map_y ", map_y+" to "+(map_y+arena_size_y*map_scale)
 print "cliprect ",clippingRect
 print "--------------------------------------------"
 
@@ -511,6 +516,7 @@ if demo_mode
   
   game_started = true
 endif
+passes = 0
 while game_is_playing do
   ' 1 eor 3 = 2
   ' 2 eor 3 = 1 :)
@@ -540,11 +546,15 @@ while game_is_playing do
     fps_val = 960.0 / (ctick - last_frame_time) 
     if debug_status
       vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
-      status_display[1,3] = "FPS: "+Int(fps_val) + " ("+ (ctick - last_frame_time) +"T)"
-      status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%"+" ("+wait_for_frame_time+"T)"
-      status_display[3,3] = "LAST REDRAW: "+rdt+"T"
-      status_display[4,3] = "AI: "+ai_time+"T"
-      status_display[5,3] = "CLIP: "+clip_time+"T"
+      status_display[1,3] = "FPS: "+Int(fps_val) 
+      '+ " ("+ (ctick - last_frame_time) +"T)"
+      status_display[2,3] = "WAITTIME: "+Int(vx_pc)+"%" 
+      '+" ("+wait_for_frame_time+"T)"
+      status_display[3,3] = "LAST REDRAW: "+rdt
+      status_display[4,3] = "AI: "+ai_time
+      status_display[5,3] = "CLIP: "+clip_time
+      status_display[6,3] = "AYC: "+ayc_tick
+      status_display[6,3] = "PASS: "+passes
     else
       status_display[1,3] = "FPS: "+Int(fps_val)
     endif
@@ -565,7 +575,9 @@ while game_is_playing do
   broken = false
   ' why is this up here?  Because we can't call this until ayc_exit has been called, and that's going to cause us a
   ' a bad time!
+  passes = 0
   while overflowed = true 
+    passes = passes + 1
     overflowed = false
     f = GetTickCount()
     ' if we have an error, lets let the error happen this loop
@@ -748,8 +760,8 @@ while game_is_playing do
 
     if require_redraw = false
       ' update the 2d trail
-      player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] / map_scale + map_x
-      player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] / map_scale + map_y
+      player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] * map_scale + map_x
+      player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] * map_scale + map_y
 
       if first_person = false or p != split_player
         ' update the 3d trail
@@ -1021,8 +1033,8 @@ endfunction
 
 ' special one for return to origin, so we can seek it
 function aps_rto()
-  call aps(CodeSprite(ayc_playcode))
   if music_enabled
+    call aps(CodeSprite(ayc_playcode))
     'print "origin at "+(total_objects+1)
     ' place a sync object here so that we can see where the music player is up to...
     ' lda #total_objects, sta_zp dualport_objreturn
@@ -1061,14 +1073,16 @@ sub drawscreen
   ' status display
   call aps_rto()
   call aps(TextListSprite(status_display))
+  
 
   call aps_rto()
+  call aps(ScaleSprite(vx_scale_factor, (162 / 0.097) * local_scale))
   ' draw an outline for the map
   map_box = aps(LinesSprite({ _
       {MoveTo, map_x, map_y}, _
-      {DrawTo, map_x + arena_size_x / map_scale, map_y }, _
-      {DrawTo, map_x + arena_size_x / map_scale, map_y + arena_size_y / map_scale }, _
-      {DrawTo, map_x , map_y + arena_size_y / map_scale }, _
+      {DrawTo, map_x + arena_size_x * map_scale, map_y }, _
+      {DrawTo, map_x + arena_size_x * map_scale, map_y + arena_size_y * map_scale }, _
+      {DrawTo, map_x , map_y + arena_size_y * map_scale }, _
       {DrawTo, map_x, map_y } }))
 
   for p = 1 to player_count
@@ -1078,12 +1092,12 @@ sub drawscreen
     call aps(IntensitySprite(player_intensity[p]))
     dim foome[player_pos[p], 3]
     foome[1, 1] = MoveTo
-    foome[1, 2] = (player_x[p, 1] / map_scale) + map_x
-    foome[1, 3] = (player_y[p, 1] / map_scale) + map_y
+    foome[1, 2] = (player_x[p, 1] * map_scale) + map_x
+    foome[1, 3] = (player_y[p, 1] * map_scale) + map_y
     for seg = 2 to player_pos[p] 
       foome[seg, 1] = DrawTo
-      foome[seg, 2] = (player_x[p, seg] / map_scale) + map_x
-      foome[seg, 3] = (player_y[p, seg] / map_scale) + map_y
+      foome[seg, 2] = (player_x[p, seg] * map_scale) + map_x
+      foome[seg, 3] = (player_y[p, seg] * map_scale) + map_y
     next
     player_trail[p] = foome
     call aps(LinesSprite(player_trail[p]))
