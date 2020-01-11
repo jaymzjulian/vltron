@@ -3,6 +3,18 @@
 ' For the vectrex32 platform
 '
 
+if version() < 121
+  call MoveSprite(-40, 0)
+  call TextSprite("VXTRON REQUIRES FIRMWARE 1.21")
+  controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+  last_controls = controls
+  while controls[1,3] = 0
+    controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+    last_controls = controls
+  endwhile
+  stop
+endif
+
 ' globals for gameplay :)
 music_enabled = true
 title_enabled = true
