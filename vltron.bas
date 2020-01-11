@@ -106,7 +106,7 @@ credits_sprite = { _
   { -100, 75, "g 2020 JAYMZ JULIAN" }, _
   { -100, 60,  "CODE BY JAYMZ JULIAN" }, _
   { -100, 45,  "3D MODELS BY ILKKE" }, _
-  { -100, 30,  "MUSIC BY JAYMZ JULIAN" }, _
+  { -100, 30,  "MUSIC BY BEN DAGLISH" }, _
   { -100, 15,  "THANKS TO:" }, _
   { -100, 1,  " BOB ALEXANDER, FOR THE VEXTREX32 PLATFORM," }, _
   { -100, -15,  "    SUPPORT IN GETTING TO GRIPS WITH IT,"},_
