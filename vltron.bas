@@ -501,17 +501,6 @@ for p = 1 to player_count
 next
 
 
-call drawscreen
-
-' FIXME: we're going to change this to a countdown... but still we'll init this countdown here
-if demo_mode = false
-  call aps_rto()
-  call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
-  call aps(IntensitySprite(127))
-  text = aps(TextSprite("PRESS BUTTONS 1+2 TO START"))
-endif
-demo_frames = 0
-
 print "--------------------------------------------"
 print "local_scale ",local_scale
 print "vx_scale_factor ",vx_scale_factor
@@ -552,6 +541,23 @@ if demo_mode
   waiting_for_camera = false
 endif
 passes = 0
+
+
+
+call drawscreen
+
+' FIXME: we're going to change this to a countdown... but still we'll init this countdown here
+if demo_mode = false
+  call aps_rto()
+  call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
+  call aps(IntensitySprite(127))
+  text = aps(TextSprite("PRESS BUTTONS 1+2 TO START"))
+endif
+demo_frames = 0
+
+
+
+
 while game_is_playing do
   ' 1 eor 3 = 2
   ' 2 eor 3 = 1 :)
