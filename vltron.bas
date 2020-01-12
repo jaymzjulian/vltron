@@ -1133,8 +1133,10 @@ sub drawscreen
   endif
   
   ' status display
-  call aps_rto()
-  call aps(TextListSprite(status_display))
+  if status_enabled
+    call aps_rto()
+    call aps(TextListSprite(status_display))
+  endif
   
 
   call aps_rto()
