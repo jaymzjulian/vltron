@@ -1298,7 +1298,7 @@ sub update_music_vbi
 		' don't lose track	
     '
     ' if we don't at least start within 10 ticks, go away
-		while Peek(dualport_status) != ayc_dp_sequence and ((Peek(dualport_status) &1) != 0 or (GetTickCount()-ayc_tick)<10)
+		while Peek(dualport_status) != ayc_dp_sequence and ((Peek(dualport_status) &1) != 0 or (GetTickCount()-ayc_tick)<10) and (GetTickCount()-ayc_tick)<960
       if irq_mode = 0
         call ayc_update_timer
       endif
@@ -1832,7 +1832,13 @@ sub do_credits()
           {credits_sprite[j,1], credits_sprite[j,2], credits_sprite[j,3]}, _
           {credits_sprite[j+1,1], credits_sprite[j+1,2], credits_sprite[j+1,3]} _
           })
+      if music_enabled
+        call CodeSprite(ayc_playcode)
+      endif
     next
+    if music_enabled
+      call CodeSprite(ayc_exit)
+    endif
     last_controls = controls
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   endwhile
@@ -1867,7 +1873,6 @@ sub do_menu()
       if music_enabled
         call CodeSprite(ayc_playcode)
       endif
-      call CodeSprite(ayc_playcode)
     next
     
     if music_enabled
