@@ -384,7 +384,7 @@ dim player_pos[4]
 
 dim sprrot[4]
 
-sprrot = {0, 270, 180, 90}
+sprrot = {0, 90, 180, 270}
 camera_position = { 0.5, 4.5, -80.5 }
 split_camera = { _
   { 0.5, 4.5, -80.5 }, _
@@ -532,6 +532,7 @@ frames_played = 0
 ai_time = 0
 clip_time = 0
 split_player = 1
+waiting_for_camera = true
 if demo_mode
   if (rand() mod 2 = 0)
     split_screen = false
@@ -545,6 +546,7 @@ if demo_mode
   endif
   
   game_started = true
+  waiting_for_camera = false
 endif
 passes = 0
 while game_is_playing do
@@ -1941,6 +1943,18 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "FIRST PERSON SPLIT" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     split_screen = true
+  endif
+  if menu_data[j][menu_status[j]] = "FPS ONLY"
+    debug_status = false
+    status_enabled = true
+  endif
+  if menu_data[j][menu_status[j]] = "NO STATUS"
+    debug_status = false
+    status_enabled = false
+  endif
+  if menu_data[j][menu_status[j]] = "DEBUG"
+    debug_status = true
+    status_enabled = true
   endif
 endsub
 
