@@ -292,6 +292,10 @@ dim x_move[4]
 dim y_move[4]
 lc_object = lightcycle()
 
+pl_button = 5
+pr_button = 6
+p2_contoller = 1
+
 rider_enabled = true
 rider_is_duck = false
 
@@ -623,6 +627,10 @@ while game_is_playing do
   ' why is this up here?  Because we can't call this until ayc_exit has been called, and that's going to cause us a
   ' a bad time!
   passes = 0
+  joytype = Controller1
+  if computer_conly[2] = false and p2_controller = 2
+    joytype = Controller1 + Controller2
+  end
   while overflowed = true 
     passes = passes + 1
     overflowed = false
@@ -632,7 +640,7 @@ while game_is_playing do
       on error call sprite_overflow
     endif
     broken = false
-    controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
+    controls = WaitForFrame(JoystickDigital, joytype, JoystickX + JoystickY)
     on error call 0
     wait_for_frame_time = GetTickCount()-f
     if wait_for_frame_time > 100
@@ -805,13 +813,19 @@ while game_is_playing do
       endif
       ai_time = ai_time + (GetTickCount()-start_ai)
     else
+      my_controller = 1
+      button_offset = 0
+      if p = 2 and p2_controller = 2
+        my_controller = 1
+        button_offset = 2
+      endif
       ' handle input - we use require_update as a flag to know if we
       ' need to redraw the screen...
-      if controls[1, 4] = 1 and last_controls[1, 4] != 1
+      if controls[my_controller, 4+button_offset] = 1 and last_controls[my_controller, 4+button_offset] != 1
         player_direction[p] = ((player_direction[p] + 1) mod 4) 
         require_update = 1
       endif
-      if controls[1, 3] = 1 and last_controls[1, 3] != 1
+      if controls[my_controller, 3+button_offset] = 1 and last_controls[my_controller, 3+button_offset] != 1
         ' mod is signed, so doens't really work here.... sad!
         player_direction[p] = (player_direction[p] - 1)
         if player_direction[p] < 0
@@ -932,9 +946,9 @@ while game_is_playing do
     camera_position[1] = player_x[p, player_pos[p]] - arena_size_x/2
     camera_position[2] = 1
     camera_position[3] = player_y[p, player_pos[p]] - arena_size_y/2
-    if controls[1, 5] = 1
+    if controls[1, 5] = 1 and pl_button != 0
       call cameraSetRotation(0, 0, last_rotation+90)
-    elseif controls[1,6] = 1
+    elseif controls[1,6] = 1 and pr_button != 0
       call cameraSetRotation(0, 0, last_rotation-90)
     else
       call cameraSetRotation(0, 0, last_rotation)
@@ -2074,6 +2088,20 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "ONE PLAYER"
     computer_only = { false, true, true, true }
+    pl_button = 5
+    pr_button = 6
+  endif
+  if menu_data[j][menu_status[j]] = "TWO PLAYERS - ONE CONTROLLER"
+    computer_only = { false, false, true, true }
+    pl_button = 0
+    pr_button = 0
+    p2_controller = 2
+  endif
+  if menu_data[j][menu_status[j]] = "TWO PLAYERS - TWO CONTROLLERS"
+    computer_only = { false, false, true, true }
+    pl_button = 5
+    pr_button = 6
+    p2_controller = 1
   endif
   if menu_data[j][menu_status[j]] = "COMPUTER ONLY"
     computer_only = { true, true, true, true }
