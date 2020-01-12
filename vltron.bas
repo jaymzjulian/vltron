@@ -256,7 +256,9 @@ if buffer_mode = 1
   else
     ' in non-irq mode, we ignore the code that actually sets upo the IRQ - we're going
     ' to push in data a different way...
-    ayc_init = { $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
+    ayc_init = { $7c, dualport_status/256, dualport_status mod 256, _
+      $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
+    'ayc_init = { $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
   endif
   'ayc_init = { $cc, $30, $75, $fd, $d0, $08, $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
 
@@ -329,6 +331,7 @@ endif
 ayc_start_time = GetTickCount()
 
 
+max_player_count = 4
 player_count = 4
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
@@ -476,7 +479,7 @@ gridlines_y = 8
   next
 
 player_pos = {1,1,1,1}
-for p = 1 to player_count
+for p = 1 to max_player_count
   player_x[p, player_pos[p]] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]+1]
   player_y[p, player_pos[p]] = (arena_size_y / 2) - start_distance * y_move[player_direction[p]+1]
   player_x[p, player_pos[p]+1] = (arena_size_x / 2) - start_distance * x_move[player_direction[p]+1]
@@ -822,6 +825,7 @@ while game_is_playing do
 
     if require_redraw = false
       ' update the 2d trail
+
       player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] * map_scale + map_x
       player_trail[p][player_pos[p], 3] = player_y[p, player_pos[p]] * map_scale + map_y
 
@@ -1286,11 +1290,16 @@ sub update_music_vbi
 		' why is this a sequence?  because if not, bad things happen in the bathroom...
 		' once we've hit it, we update the codesprite to chang the sequence for the next run, so that we
 		' don't lose track	
-		while Peek(dualport_status) != ayc_dp_sequence
+    '
+    ' if we don't at least start within 10 ticks, go away
+		while Peek(dualport_status) != ayc_dp_sequence and ((Peek(dualport_status) &1) != 0 or (GetTickCount()-ayc_tick)<10)
       if irq_mode = 0
         call ayc_update_timer
       endif
 		endwhile
+		if Peek(dualport_status) != ayc_dp_sequence
+      print "ohai, we didn't actuatlly update... weird - dualport_status=" +Peek(dualport_status)
+    endif
     'print "endframe"
     ' reset benchmark counter once we've synced ;)
     ayc_tick = GetTickCount()
