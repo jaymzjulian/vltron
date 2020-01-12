@@ -294,7 +294,7 @@ lc_object = lightcycle()
 
 pl_button = 5
 pr_button = 6
-p2_contoller = 1
+p2_controller = 1
 
 rider_enabled = true
 rider_is_duck = false
@@ -349,7 +349,7 @@ if title_enabled
 endif
 
 player_direction = { 0, 2, 1, 3 }
-player_intensity = {127, 96, 64, 80 }
+player_intensity = {127, 64, 96, 80 }
 alive = { true, true, true, true }
 floor_intensity = 48
 wall_intensity = 48
@@ -628,9 +628,9 @@ while game_is_playing do
   ' a bad time!
   passes = 0
   joytype = Controller1
-  if computer_conly[2] = false and p2_controller = 2
+  if computer_only[2] = false and p2_controller = 2
     joytype = Controller1 + Controller2
-  end
+  endif
   while overflowed = true 
     passes = passes + 1
     overflowed = false
@@ -2117,13 +2117,17 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "THIRD PERSON" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     first_person = false
-    if computer_only[2] = true
+    if computer_only[2] = false
+      split_screen = true
+    else
       split_screen = false
     endif
   endif
   if menu_data[j][menu_status[j]] = "FIRST PERSON" or menu_data[j][menu_status[j]] = "FIRST PERSON SPLIT"
     first_person = true
-    if computer_only[2] = true
+    if computer_only[2] = false
+      split_screen = true
+    else
       split_screen = false
     endif
   endif
