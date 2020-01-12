@@ -932,7 +932,13 @@ while game_is_playing do
     camera_position[1] = player_x[p, player_pos[p]] - arena_size_x/2
     camera_position[2] = 1
     camera_position[3] = player_y[p, player_pos[p]] - arena_size_y/2
-    call cameraSetRotation(0, 0, last_rotation)
+    if controls[1, 5] = 1
+      call cameraSetRotation(0, 0, last_rotation-90)
+    elseif controls[1,6] = 1
+      call cameraSetRotation(0, 0, last_rotation+90)
+    else
+      call cameraSetRotation(0, 0, last_rotation)
+    endif
   else
     ' look at the player
     target_x = player_x[split_player, player_pos[split_player]] - arena_size_x/2
@@ -993,13 +999,17 @@ while game_is_playing do
     'print camera_position
     'print -zangle
     'call SpritePrintVectors(player_trail3d[1])
-    if alive[1] = false
-      game_is_playing = false
-    endif
 
     call cameraSetRotation(y_angle, 0, -z_angle)
   endif
-  
+
+  game_is_playing = false
+  for p = 1 to player_count
+    if alive[p] = true and computer_only[p] = false
+      game_is_playing = true
+    endif
+  endif
+    
   ' finally, clip things that are more than
   ' n units away from the camera.  this might be terrible to do, but my inclination is that it makes sense!
   ctick = GetTickCount()
