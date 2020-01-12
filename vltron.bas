@@ -933,9 +933,9 @@ while game_is_playing do
     camera_position[2] = 1
     camera_position[3] = player_y[p, player_pos[p]] - arena_size_y/2
     if controls[1, 5] = 1
-      call cameraSetRotation(0, 0, last_rotation-90)
-    elseif controls[1,6] = 1
       call cameraSetRotation(0, 0, last_rotation+90)
+    elseif controls[1,6] = 1
+      call cameraSetRotation(0, 0, last_rotation-90)
     else
       call cameraSetRotation(0, 0, last_rotation)
     endif
@@ -1008,7 +1008,7 @@ while game_is_playing do
     if alive[p] = true and computer_only[p] = false
       game_is_playing = true
     endif
-  endif
+  next
     
   ' finally, clip things that are more than
   ' n units away from the camera.  this might be terrible to do, but my inclination is that it makes sense!
