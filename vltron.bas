@@ -559,14 +559,17 @@ call drawscreen
 ' FIXME: we're going to change this to a countdown... but still we'll init this countdown here
 if demo_mode = false
   call aps_rto()
-  call aps(MoveSprite(-32.0 * local_scale, -32.0 * local_scale))
-  call aps(IntensitySprite(127))
-  text = aps(TextSprite("PRESS BUTTONS 1+2 TO START"))
+  intro_intens = aps(IntensitySprite(127))
+  intro_scale = aps(ScaleSprite(127))
+  intro_text = aps(LinesSprite(TextToLines("3")))
 endif
 demo_frames = 0
 
 
 
+
+intro_val = 3
+intro_scale_val = 127
 
 while game_is_playing do
   ' 1 eor 3 = 2
@@ -915,7 +918,18 @@ while game_is_playing do
 
   ' if we're not playing yet, wait until we are!
   if game_started = false
-    if controls[1, 4] = 1 and controls[1,3] = 1
+    if intro_scale_val > 0
+      intro_scale_val = intro_scale_val - 4
+      call SpriteScale(intro_scale, intro_scale_val) 
+      call SpriteIntensity(intro_intens, intro_scale_val)
+      if intro_scale_val < 1 and intro_val > 0
+        intro_scale_val = 127
+        intro_val = intro_val - 1
+        call RemoveSprite(intro_text)
+        total_objects = total_objects - 1
+        intro_text = aps(LinesSprite(TextToLines(intro_val)))
+      endif
+    else
       game_started = true
       call drawscreen
     endif
