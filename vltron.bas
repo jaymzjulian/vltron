@@ -317,9 +317,14 @@ arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 ' we're going to make these dynamic, eventually...
 trail_view_distance_sq = 64 * 64
 cycle_view_distance_sq = 64 * 64
+' clip_trails seems to take more ticks than it saves in FPS - so it's off for now.
+' clipping will just clip the cycle models, without that.  Ideally, we'd do a post-projection
+' clip based on Z distance from camera, but alas we don't have that functionality right now :)
 clip_trails = false
-split_screen = false
 clipping = true
+
+
+split_screen = false
 
 half_screen = 255 * local_scale
 half_screen_scaled = 255 * cycle_local_scale
@@ -725,10 +730,11 @@ while game_is_playing do
         while Peek(dualport_objreturn) < return_sprite and abort_me = false
           'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
           if GetTickCount()-tc > 960
-            print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
             if release_mode
-              bp
+              print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
+              'bp
             else
+              print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
               abort_me = true
             endif
           endif
@@ -1038,11 +1044,14 @@ while game_is_playing do
   alive_humans = 0
   total_humans = 0
   alive_players = 0
+  no_more_game = false
   for p = 1 to player_count
     ' points are based entirely on time :)
-    if alive[p]
+    ' i.e. if we're alive, then we're alive!
+    if alive[p] = true
       player_rank[p] = GetTickCount() - game_start_time
       alive_players = alive_players + 1
+      'print "player "+p+" is alive - "+player_rank[p]
     endif
     if computer_only[p] = false
       total_humans = total_humans + 1
@@ -1062,20 +1071,19 @@ while game_is_playing do
   'print "alive_computers: "+alive_computers
   if alive_players = 0
     print "Game over due to no alive players"
-    'bp
     game_is_playing = false
   endif
   ' if there was multiple players, and only one is left, that's a game over
   if alive_players = 1 and player_count > 1
     print "Game over due to only one player in multiplayer"
-    'bp
     game_is_playing = false
   endif
   ' if there was humans in the game, and now there is no humans remaining, then that 
   ' too is game over
   if alive_humans = 0 and total_humans > 0
     print "Game over due to no remanining humans"
-    'bp
+    print alive
+    print computer_only
     game_is_playing = false
   endif
 
@@ -1104,8 +1112,6 @@ while game_is_playing do
         call SpriteEnable(rider_sprite[p], true)
       endif
     endif
-
-    ' FIXME: disable the drivers if further - do this once i add the drivers...
 
     if clip_trails
       ' now do the trails - we don't spritedisable those, since it would not make sense.... what we do instead,
@@ -1148,7 +1154,7 @@ if demo_mode = false
     call aps(CodeSprite(ayc_pokedata))
     call aps(CodeSprite(ayc_init))
   endif
-  dim rank_list[player_count, 3]
+  dim rank_list[player_count]
   ' display our players in order...
   ' i am deeply ashamed of this code, but too lazy to write a proper sort....
   dim displayed[player_count] 
@@ -1164,12 +1170,17 @@ if demo_mode = false
         bestplayer = p
       endif
     next
-    rank_list[display_count, 1] = 0
-    rank_list[display_count, 2] = 15*display_count
-    rank_list[display_count, 3] = display_count+": PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
+    rank_list[display_count] = {{0, 15*display_count, "TEXT"}}
+    if computer_only[bestplayer]
+      rank_list[display_count][1, 3] = display_count+": COMPUTER "+bestplayer+" SCORE "+player_rank[bestplayer]
+    else
+      rank_list[display_count][1, 3] = display_count+": PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
+    endif
     displayed[bestplayer] = true
+    ' seperated so that we call the music poalkyer often enough!
+    call TextListSprite(rank_list[display_count])
+    call CodeSprite(ayc_playcode)
   next
-  call TextListSprite(rank_list)
   call TextSprite("GAME OVER PRESS 2+3")
   if music_enabled
     call CodeSprite(ayc_playcode)
