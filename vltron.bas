@@ -290,6 +290,7 @@ dim player_y[4,1024]
 dim player_direction[4]
 dim x_move[4]
 dim y_move[4]
+dim player_rank[4]
 lc_object = lightcycle()
 
 pl_button = 5
@@ -570,6 +571,7 @@ demo_frames = 0
 
 intro_val = 3
 intro_scale_val = 127
+game_start_time = GetTickCount()
 
 while game_is_playing do
   ' 1 eor 3 = 2
@@ -1031,12 +1033,52 @@ while game_is_playing do
     call cameraSetRotation(y_angle, 0, -z_angle)
   endif
 
-  game_is_playing = false
+  ' time for a game over condition
+  alive_computers = 0
+  alive_humans = 0
+  total_humans = 0
+  alive_players = 0
   for p = 1 to player_count
+    ' points are based entirely on time :)
+    if alive[p]
+      player_rank[p] = GetTickCount() - game_start_time
+      alive_players = alive_players + 1
+    endif
+    if computer_only[p] = false
+      total_humans = total_humans + 1
+    endif
     if alive[p] = true and computer_only[p] = false
-      game_is_playing = true
+      alive_humans = alive_humans + 1
+    endif
+    if alive[p] = true and computer_only[p] = true
+      alive_computers = alive_computers + 1
     endif
   next
+  ' obviously...
+  'print "alive: "+alive
+  'print "computer: "+computer_only
+  'print "alive_players: "+alive_players
+  'print "alive_humans: "+alive_humans
+  'print "alive_computers: "+alive_computers
+  if alive_players = 0
+    print "Game over due to no alive players"
+    'bp
+    game_is_playing = false
+  endif
+  ' if there was multiple players, and only one is left, that's a game over
+  if alive_players = 1 and player_count > 1
+    print "Game over due to only one player in multiplayer"
+    'bp
+    game_is_playing = false
+  endif
+  ' if there was humans in the game, and now there is no humans remaining, then that 
+  ' too is game over
+  if alive_humans = 0 and total_humans > 0
+    print "Game over due to no remanining humans"
+    'bp
+    game_is_playing = false
+  endif
+
     
   ' finally, clip things that are more than
   ' n units away from the camera.  this might be terrible to do, but my inclination is that it makes sense!
@@ -1097,10 +1139,41 @@ while game_is_playing do
 endwhile
 
 if demo_mode = false
-  print "hit game over"
+  call ClearScreen()
   call ReturnToOriginSprite()
   call IntensitySprite(127)
+  call SetFrameRate(vx_frame_rate)
+  if music_enabled
+    call aps(CodeSprite({$86, $00, $b7, dualport_objreturn/256, dualport_objreturn mod 256}))
+    call aps(CodeSprite(ayc_pokedata))
+    call aps(CodeSprite(ayc_init))
+  endif
+  dim rank_list[player_count, 3]
+  ' display our players in order...
+  ' i am deeply ashamed of this code, but too lazy to write a proper sort....
+  dim displayed[player_count] 
+  for p = 1 to player_count
+    displayed[p] = false
+  next
+  for display_count = 1 to player_count 
+    bestrank=0
+    bestplayer=0
+    for p = 1 to player_count
+      if player_rank[p] >= bestrank and displayed[p] = false
+        bestrank = player_rank[p]
+        bestplayer = p
+      endif
+    next
+    rank_list[p, 1] = 0
+    rank_list[p, 2] = 15*display_count
+    rank_list[p, 3] = "PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
+  next
+  call TextListSprite(rank_list)
   call TextSprite("GAME OVER PRESS 2+3")
+  if music_enabled
+    call CodeSprite(ayc_playcode)
+    call CodeSprite(ayc_exit)
+  endif
   done_waiting = false
   while done_waiting = false
     ' this is a hack for now until sprite management gets better
