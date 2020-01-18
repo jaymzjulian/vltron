@@ -20,8 +20,8 @@ music_enabled = true
 title_enabled = true
 debug_status = false
 dualport_objreturn = 1
-'release_mode = true
-release_mode = false
+release_mode = true
+'release_mode = false
 
 ' optimization tunables - the reason we're using the larger scale factor on the gridlines is for
 ' visual fidelity - i noticed that using smaller scale factors results in higher frame rates if you've got
@@ -1164,9 +1164,10 @@ if demo_mode = false
         bestplayer = p
       endif
     next
-    rank_list[p, 1] = 0
-    rank_list[p, 2] = 15*display_count
-    rank_list[p, 3] = "PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
+    rank_list[display_count, 1] = 0
+    rank_list[display_count, 2] = 15*display_count
+    rank_list[display_count, 3] = display_count+": PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
+    displayed[bestplayer] = true
   next
   call TextListSprite(rank_list)
   call TextSprite("GAME OVER PRESS 2+3")
