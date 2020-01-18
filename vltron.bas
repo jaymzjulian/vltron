@@ -944,7 +944,7 @@ while game_is_playing do
   endif
 
   if first_person
-    target_rotation = 360-sprrot[player_direction[1]+1]
+    target_rotation = 360-sprrot[player_direction[split_player]+1]
     if target_rotation != last_rotation
       ' we need to work out which direction to turn from last_rotation to hit
       ' target_rotation soonest.  We normalize this to -180 to 180
@@ -1101,7 +1101,7 @@ while game_is_playing do
     dist = dist_v[1] * dist_v[1] + dist_v[3] * dist_v[3]
     ' just do the thing with sq co-orders
     ' this might be terrible to do, since 
-    if dist > cycle_view_distance_sq
+    if dist > cycle_view_distance_sq or (first_person = true and p = split_player)
       call SpriteEnable(cycle_sprite[p], false)
       if rider_enabled
         call SpriteEnable(rider_sprite[p], false)
@@ -1365,29 +1365,27 @@ sub drawscreen
   ' put these in a secod loop so they appear at the end of the display list...
   for p = 1 to player_count
     if alive[p]
-    if first_person = false or p != 1
-      ' return to origin before doing 3d things
-      call aps_rto()
-      call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
-      if split_screen
-        call aps(LinesSprite(viewport_translate_scaled))
-      endif
-      call aps(IntensitySprite(player_intensity[p]))
-      cycle_sprite[p] = aps(Lines3dSprite(lc_object))
-      call SpriteClip(cycle_sprite[p], cycle_clippingRect)
-      
-      ' and the rider :)
-      if rider_enabled
+        ' return to origin before doing 3d things
         call aps_rto()
         call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
         if split_screen
           call aps(LinesSprite(viewport_translate_scaled))
         endif
         call aps(IntensitySprite(player_intensity[p]))
-        rider_sprite[p] = aps(Lines3dSprite(rider()))
-        call SpriteClip(rider_sprite[p], cycle_clippingRect)
-      endif
-    endif
+        cycle_sprite[p] = aps(Lines3dSprite(lc_object))
+        call SpriteClip(cycle_sprite[p], cycle_clippingRect)
+        
+        ' and the rider :)
+        if rider_enabled
+          call aps_rto()
+          call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
+          if split_screen
+            call aps(LinesSprite(viewport_translate_scaled))
+          endif
+          call aps(IntensitySprite(player_intensity[p]))
+          rider_sprite[p] = aps(Lines3dSprite(rider()))
+          call SpriteClip(rider_sprite[p], cycle_clippingRect)
+        endif
     endif
   next
   ' why is this here?  because without it, we get the x or y co-ordinate is too large issue
