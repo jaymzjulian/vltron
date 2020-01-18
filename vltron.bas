@@ -77,6 +77,7 @@ status_text = { _
 
 start_text={"START GAME"}
 credits_text={"CREDITS"}
+release_info={"BETA RELEASE 1"}
 
 menu_data = { _
   start_text, _
@@ -86,10 +87,11 @@ menu_data = { _
   arena_options, _
   driver_options, _
   credits_text, _
-  status_text _
+  status_text, _
+  release_info _
 }
 
-menu_status = { 1, 1, 1, 1, 1, 1, 1, 1 }
+menu_status = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
 options_sprite = { _
   { -100, 0,    "-> START" }, _
@@ -99,7 +101,8 @@ options_sprite = { _
   { -100, -60,  "   NO DRIVERS" }, _
   { -100, -75, "   CREDITS" }, _
   { -100, -90, "   NO STATUS" }, _
-  { -100, -105, "   ETC" } _
+  { -100, -105, "   ETC" }, _
+  { -100, -120, "   BETA RELEASE 1" } _
 }
 credits_sprite = { _
   { -100, 90, "VLTRON BETA 1" }, _
@@ -732,9 +735,10 @@ while game_is_playing do
           if GetTickCount()-tc > 960
             if release_mode
               print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
-              'bp
+              abort_me = true
             else
               print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
+              bp
               abort_me = true
             endif
           endif
