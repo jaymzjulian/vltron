@@ -240,7 +240,7 @@ if buffer_mode = 1
      $3b, _
      $b6, flag_loc / 256, flag_loc mod 256, $81, $00, $27, $25, _
      $7a, flag_loc / 256, flag_loc mod 256, _
-     $b6, dualport_return / 256, dualport_return mod 256, $81, buffer_count, $27, $1b, _
+     $b6, dualport_return / 256, dualport_return mod 256, $81, buffer_count, $2c, $1f, _
      $FE, buffer_location / 256, buffer_location mod 256, $BD, $F2, $7D, _
      $b6, dualport_return/256, dualport_return mod 256, _
      $4c, _
@@ -1482,8 +1482,8 @@ sub update_music_vbi
 		ayc_exit[2] = ayc_dp_sequence
 	  ' fill any used buffers with new sound data
   	ayc_played_this_frame = Peek(dualport_return)
-    if ayc_played_this_frame == buffer_count
-      print "WARN: AYC buffer limit hit - consider increasing buffer size..."
+    if ayc_played_this_frame >= buffer_count
+      print "WARN: AYC buffer limit of "+ayc_played_this_frame+" hit - consider increasing buffer size..."
     endif
     for i = 1 to ayc_played_this_frame
       call play_that_music
