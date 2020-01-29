@@ -16,7 +16,7 @@ if version() < 121
 endif
 
 ' globals for gameplay :)
-music_enabled = true
+music_enabled = false
 title_enabled = true
 debug_status = false
 
@@ -87,7 +87,7 @@ status_text = { _
 
 start_text={"START GAME"}
 credits_text={"CREDITS"}
-release_info={"BETA RELEASE 1"}
+release_info={"GIT MASTER"}
 
 menu_data = { _
   start_text, _
@@ -266,9 +266,11 @@ if buffer_mode = 1
   else
     ' in non-irq mode, we ignore the code that actually sets upo the IRQ - we're going
     ' to push in data a different way...
-    ayc_init = { $7c, dualport_status/256, dualport_status mod 256, _
-      $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
+    'ayc_init = { $7c, dualport_status/256, dualport_status mod 256, _
+    '  $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
     'ayc_init = { $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
+    ayc_init = { $86, $01, $b7, dualport_status/256, dualport_status mod 256, _
+      $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
   endif
   'ayc_init = { $cc, $30, $75, $fd, $d0, $08, $86, $00, $b7, dualport_return / 256, dualport_return mod 256 }
 
@@ -295,8 +297,8 @@ endif
 ' The Game
 ' ----------------------------------------------------------------------
 ' Allow for up to 1024 co-ords for each of the 4 players
-dim player_x[4,1024]
-dim player_y[4,1024]
+dim player_x[4,512]
+dim player_y[4,512]
 dim player_direction[4]
 dim x_move[4]
 dim y_move[4]
