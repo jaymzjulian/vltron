@@ -21,12 +21,12 @@ title_enabled = true
 debug_status = false
 
 
-dualport_objreturn = 2
+dualport_objreturn = 0
 ' This is almost certainly wrong/destructive!
 ' but is.... probably enough?
-dualport_return = 3
-dualport_status = 4
-dualport_flag = 5
+dualport_return = 1
+dualport_status = 2
+dualport_flag = 3
 
 
 
