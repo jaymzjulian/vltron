@@ -1,0 +1,49 @@
+0000                SOUND_BYTES_X:   =   $f27d   
+0000                BUFFER_BASE:   =   $c882   
+0000                VIA_INT_FLAGS:   =   $d00d   
+0000                             ; This needs to be 2*regs+1, not regs, since
+0000                             ; we need the $ff at the end - so 29 bytes for a
+0000                             ; standard AY
+0000                BUFFER_SIZE:   =   29   
+0000                BUFFER_START:   =   $c884   
+0000                BUFFER_END:   =   $c885   
+0000                NUM_BUFFERS:   =   5   
+0000                             ; irq entry: update VIA and return fast so we dont
+0000                             ; hurt lines
+0000   CC 12 34               LDD   #$1234   
+0003   FD D0 08               STD   $d008   
+0006   86 01                  LDA   #$1   
+0008   B7 23 45               STA   $2345   
+000B   3B                     RTI      
+000C                             ; check if our flag is set
+000C   B6 23 45               LDA   $2345   
+000F   81 00                  CMPA   #0   
+0011   27 2A                  BEQ   no_play   
+0013   4A                     DECA      
+0014   B7 23 45               STA   $2345   
+0017                             ; check if we should just skip because we are out of buffers...
+0017   B6 02 58               LDA   $258   
+001A   81 05                  CMPA   #num_buffers   
+001C   2C 1F                  BGE   no_play   
+001E                             ; update the buffer
+001E   FE C8 82               LDU   buffer_base   
+0021   BD F2 7D               JSR   Sound_Bytes_x   
+0024                             ; increment the dualport return
+0024   B6 02 58               LDA   $258   
+0027   4C                     INCA      
+0028   B7 02 58               STA   $258   
+002B                             ;  ; point to next buffer
+002B   FC C8 82               LDD   buffer_base   
+002E   C3 00 1D               ADDD   #buffer_size   
+0031                             ; if we"re at the top of the buffer, go back... it"s a loop
+0031                             ; after all!
+0031   10 83 C8 85            CMPD   #buffer_end   
+0035   2F 03                  BLE   buffer_good   
+0037   CC C8 84               LDD   #buffer_start   
+003A                BUFFER_GOOD:      
+003A   FD C8 82               STD   buffer_base   
+003D                NO_PLAY:      
+003D                             ; also update timing pointer!
+003D   86 00                  LDA   #0   
+003F   B7 23 45               STA   $2345   
+0042   39                     RTS      

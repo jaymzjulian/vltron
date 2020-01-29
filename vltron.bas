@@ -233,20 +233,31 @@ if buffer_mode = 1
   ' orig code is in buffer.a09 with comments
   '
   ' we acutally shove the main playcode into vectrex ram to try and save ourselves some dpram....
+  ' see the .lst file for disas
   ayc_playcode = { $bd, player_jmp / 256, player_jmp mod 256 }
   internal_ayc_playcode = { _
-     $cc, via_rate mod 256, via_rate / 256, $fd, $d0, $08, _
+     $cc, via_rate mod 256, via_rate / 256, $fd, $d0, $08, _ 
      $7c, flag_loc / 256, flag_loc mod 256, _
      $3b, _
-     $b6, flag_loc / 256, flag_loc mod 256, $81, $00, $27, $25, _
-     $7a, flag_loc / 256, flag_loc mod 256, _
-     $b6, dualport_return / 256, dualport_return mod 256, $81, buffer_count, $2c, $1f, _
-     $FE, buffer_location / 256, buffer_location mod 256, $BD, $F2, $7D, _
+     $b6, flag_loc / 256, flag_loc mod 256, _
+     $81, $00, _
+     $27, $2a, _
+     $4a, _
+     $b7, flag_loc / 256, flag_loc mod 256, _
+     $b6, dualport_return / 256, dualport_return mod 256, _
+     $81, buffer_count, _
+     $2c, $1f, _
+     $FE, buffer_location / 256, buffer_location mod 256, _
+     $BD, $F2, $7D, _
      $b6, dualport_return/256, dualport_return mod 256, _
      $4c, _
      $b7, dualport_return/256, dualport_return mod 256, _
-     $fc, buffer_location / 256, buffer_location mod 256, $c3, $00, $1d, $10, $83, buffer_end / 256, buffer_end mod 256,  _
-                        $2f, $03, $cc, buffer_base / 256, buffer_base mod 256, $fd, buffer_location / 256, buffer_location mod 256, _
+     $fc, buffer_location / 256, buffer_location mod 256, _
+     $c3, $00, $1d, _
+     $10, $83, buffer_end / 256, buffer_end mod 256,  _
+     $2f, $03, _
+     $cc, buffer_base / 256, buffer_base mod 256, _
+     $fd, buffer_location / 256, buffer_location mod 256, _
      $39 }
 
   '--------------------------------------------------------------------'
