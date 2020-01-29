@@ -19,7 +19,17 @@ endif
 music_enabled = true
 title_enabled = true
 debug_status = false
-dualport_objreturn = 1
+
+
+dualport_objreturn = 2
+' This is almost certainly wrong/destructive!
+' but is.... probably enough?
+dualport_return = 3
+dualport_status = 4
+dualport_flag = 5
+
+
+
 release_mode = true
 'release_mode = false
 
@@ -170,11 +180,6 @@ if buffer_mode = 1
   buffer_count = 6
   ' rate of playback - 50hz by default...
   player_rate = 50
-  ' This is almost certainly wrong/destructive!
-  ' but is.... probably enough?
-  dualport_return = 2
-  dualport_status = 3
-  dualport_flag = 4
   ' you'll need to allow for max_regs*buffer_count worth of iram at this location 
   ' if this is the only weird thing you're using, c882 should be fine.  c880 is better, but doens't work
   ' on all v32 firmware revisions right now....
@@ -189,8 +194,10 @@ if buffer_mode = 1
     flag_loc = dualport_flag
   endif
   ayc_ticked = 0
-  player_code_loc = flag_loc + 2
+  player_code_loc = buffer_end + 31
   player_jmp = player_code_loc + 10
+
+  print "player_jmp: "+player_jmp+" player_code_loc: "+player_code_loc
 
 	game_frame_count = 0
 
@@ -1194,7 +1201,9 @@ if demo_mode = false
   while done_waiting = false
     ' this is a hack for now until sprite management gets better
     on error call game_over_overflow
-    call update_music_vbi
+    if music_enabled
+      call update_music_vbi
+    endif
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
     on error call 0
     if controls[1, 4] = 1 and controls[1,5] = 1
@@ -1459,7 +1468,7 @@ sub update_music_vbi
       endif
 		endwhile
 		if Peek(dualport_status) != ayc_dp_sequence
-      print "ohai, we didn't actuatlly update... weird - dualport_status=" +Peek(dualport_status)
+      print "ohai, we didn't actuatlly update... weird - dualport_status=" +Peek(dualport_status)+" expected "+ayc_dp_sequence
     endif
     'print "endframe"
     ' reset benchmark counter once we've synced ;)
