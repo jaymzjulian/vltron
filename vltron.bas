@@ -112,10 +112,10 @@ options_sprite = { _
   { -100, -75, "   CREDITS" }, _
   { -100, -90, "   NO STATUS" }, _
   { -100, -105, "   ETC" }, _
-  { -100, -120, "   BETA RELEASE 1" } _
+  { -100, -120, "   GIT MASTER" } _
 }
 credits_sprite = { _
-  { -100, 90, "VLTRON BETA 1" }, _
+  { -100, 90, "VLTRON GIT MASTER" }, _
   { -100, 75, "g 2020 JAYMZ JULIAN" }, _
   { -100, 60,  "CODE BY JAYMZ JULIAN" }, _
   { -100, 45,  "3D MODELS BY ILKKE" }, _
