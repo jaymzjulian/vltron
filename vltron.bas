@@ -725,7 +725,7 @@ while game_is_playing do
       '
       ' we can't just turn the RTO into a codepsrite, either, because RTO is a special case in the 3d object processing, which causes
       ' a bug to not be triggerted :)
-      if return_sprite = orig_end and music_enabled
+      if return_sprite >= (orig_end-1) and music_enabled
         return_sprite = return_sprite - 1
         while all_origins[return_sprite+1] != true  and return_sprite > 1
           return_sprite = return_sprite - 1
@@ -755,7 +755,7 @@ while game_is_playing do
         abort_me = false
         while Peek(dualport_objreturn) < return_sprite and abort_me = false
           if GetTickCount()-tc > 960
-            print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
+            print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite+" (orig:"+orig_end+")"
             if release_mode
               print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
               abort_me = true
