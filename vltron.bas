@@ -754,8 +754,8 @@ while game_is_playing do
         tc=GetTickCount()
         abort_me = false
         while Peek(dualport_objreturn) < return_sprite and abort_me = false
-          'print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
           if GetTickCount()-tc > 960
+            print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite
             if release_mode
               print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
               abort_me = true
