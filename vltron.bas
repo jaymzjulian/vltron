@@ -16,7 +16,7 @@ if version() < 121
 endif
 
 ' globals for gameplay :)
-music_enabled = false
+music_enabled = true
 title_enabled = true
 debug_status = false
 
@@ -241,7 +241,10 @@ if buffer_mode = 1
      $b6, flag_loc / 256, flag_loc mod 256, $81, $00, $27, $25, _
      $7a, flag_loc / 256, flag_loc mod 256, _
      $b6, dualport_return / 256, dualport_return mod 256, $81, buffer_count, $27, $1b, _
-     $FE, buffer_location / 256, buffer_location mod 256, $BD, $F2, $7D, $7c, dualport_return / 256, dualport_return mod 256, _
+     $FE, buffer_location / 256, buffer_location mod 256, $BD, $F2, $7D, _
+     $b6, dualport_return/256, dualport_return mod 256, _
+     $4c, _
+     $b7, dualport_return/256, dualport_return mod 256, _
      $fc, buffer_location / 256, buffer_location mod 256, $c3, $00, $1d, $10, $83, buffer_end / 256, buffer_end mod 256,  _
                         $2f, $03, $cc, buffer_base / 256, buffer_base mod 256, $fd, buffer_location / 256, buffer_location mod 256, _
      $39 }
