@@ -3,9 +3,9 @@
 ' For the vectrex32 platform
 '
 
-if version() < 121
+if version() < 123
   call MoveSprite(-40, 0)
-  call TextSprite("VXTRON REQUIRES FIRMWARE 1.21")
+  call TextSprite("VXTRON REQUIRES FIRMWARE 1.23")
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   last_controls = controls
   while controls[1,3] = 0
@@ -554,7 +554,6 @@ print "--------------------------------------------"
 
 ' some state
 game_started = false
-overflowed = false
 last_begin = 0
 last_rotation = 0
 max_rotation = 15
@@ -657,123 +656,18 @@ while game_is_playing do
     call update_music_vbi
   endif
 
-  ' draw until everything is drawn!
-  overflowed = true
-  broken = false
-  ' why is this up here?  Because we can't call this until ayc_exit has been called, and that's going to cause us a
-  ' a bad time!
-  passes = 0
   joytype = Controller1
   if computer_only[2] = false and p2_controller = 2
     joytype = Controller1 + Controller2
   endif
-  while overflowed = true 
-    passes = passes + 1
-    overflowed = false
+
     f = GetTickCount()
-    ' if we have an error, lets let the error happen this loop
-    if broken = false or release_mode = true
-      on error call sprite_overflow
-    endif
-    broken = false
     controls = WaitForFrame(JoystickDigital, joytype, JoystickX + JoystickY)
-    on error call 0
     wait_for_frame_time = GetTickCount()-f
     if wait_for_frame_time > 100
       print "Drawscreen took ",wait_for_frame_time," lastov: ",overflowed
     endif
     last_begin = GetTickCount()
-
-    ' if we are in release mode, and we got a broken draw list item, lets
-    ' just try disabling that item!
-    if release_mode and broken
-      end_sprite = GetCompiledSpriteCount()
-      print "Disabling broken sprite ",end_sprite+1
-      call SpriteEnable(all_sprites[end_sprite+1], false)
-    endif
-  
-    if overflowed = true ' and broken = false
-      ' if we _did_ overflow, disable all of the sprites we draw, and call
-      ' draw again to put them on the screen next frame!
-      end_sprite = GetCompiledSpriteCount()
-
-      'print "Disabling ",end_sprite," most recently drawn sprites so remaining can draw next remianing frame, hopefully"
-    
-      ' this should never happen, but just in case!
-      if end_sprite > total_objects
-        end_sprite = total_objects
-      endif
-
-      orig_end = end_sprite
-
-      'print "ses: "+end_sprite
-      ' we have to align to return_to_origins here - otherwise
-      ' we'll get pen drift.  To do this, we'll move _BOTH_ start sprite and
-      ' end sprite back, on the grounds that if we half drew something, we should give it a 
-      ' second chance to draw here!
-      '
-      ' for end sprite, we want to stop one shy of the return to origin - we want
-      ' the RTO to be executed!
-      while all_origins[end_sprite+1] != true  and end_sprite > 1
-        end_sprite = end_sprite - 1
-      endwhile
-      return_sprite = end_sprite
-
-      ' special case: if we're the very last sprite that ran, then we acutally want to wait for the _previous_ RTO - this will 
-      ' cause a _little_ casternation with the music driver, but all will be generally well...
-      ' this is because we do RTO, then flag that we did it - but if the RTO got processed, but the flag didn't, we could not.
-      '
-      ' we can't just turn the RTO into a codepsrite, either, because RTO is a special case in the 3d object processing, which causes
-      ' a bug to not be triggerted :)
-      if return_sprite >= (orig_end-1) and music_enabled
-        return_sprite = return_sprite - 1
-        while all_origins[return_sprite+1] != true  and return_sprite > 1
-          return_sprite = return_sprite - 1
-        endwhile
-      endif
-      'print "ees: "+end_sprite
-
-      'print all_origins[end_sprite]
-      'print all_origins[end_sprite+1]
-      'print "starting at sprite",end_sprite
-
-      ' skip sprites 1 and 2, since they are our scale and the first RTO
-      ' add one for the dualport_objreturn clear if needed
-      start_sprite = 3
-      if music_enabled
-        start_sprite = 4
-      endif
-      for sp = start_sprite to end_sprite
-        call SpriteEnable(all_sprites[sp], false)
-      next
-
-      ' if we're playing music, we need to wait for the code to finish and feed it timers before we return!
-      ' otherwise, the system will block at the new call of WaitForFrame and it'll all be sad
-      if music_enabled
-        ' FIXME: call update ayc timer until we've hit the "final" object we know we're going to draw...
-        tc=GetTickCount()
-        abort_me = false
-        while Peek(dualport_objreturn) < return_sprite and abort_me = false
-          if GetTickCount()-tc > 960
-            print "waiting for code to run: "+Peek(dualport_objreturn)+"/"+end_sprite+" (orig:"+orig_end+")"
-            if release_mode
-              print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
-              abort_me = true
-            else
-              print "Waited for more than one second for sprites to return - this should never happen, and represents a bug!"
-              bp
-              abort_me = true
-            endif
-          endif
-          call ayc_update_timer()
-        endwhile
-      endif
-      'print "end_sprite: "+end_sprite+"/"+total_objects+" dpr:"+Peek(dualport_objreturn)
-      'if Peek(dualport_objreturn) != end_sprite
-      ' bp
-      'endif
-    endif
-  endwhile
 
   ' re-enable _after_ the loop, so clipping works!
   for sp = 1 to total_objects
@@ -1216,12 +1110,10 @@ if demo_mode = false
   done_waiting = false
   while done_waiting = false
     ' this is a hack for now until sprite management gets better
-    on error call game_over_overflow
     if music_enabled
       call update_music_vbi
     endif
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
-    on error call 0
     if controls[1, 4] = 1 and controls[1,5] = 1
       done_waiting = true
     endif
@@ -1230,13 +1122,6 @@ if demo_mode = false
 endif
 
 endwhile
-
-sub game_over_overflow
-  call ClearScreen
-  call ReturnToOriginSprite()
-  call IntensitySprite(127)
-  call TextSprite("GAME OVER PRESS 2+3")
-endsub
 
 function collision(x, y)
     if x = 0 or y = 0 or x = arena_size_x or y = arena_size_y
@@ -1250,21 +1135,6 @@ function collision(x, y)
     endif
     return false
 endfunction
-
-sub sprite_overflow
-  overflowed = true
-  e = GetLastError()
-  if e[1] != 521
-    if release_mode = false
-      print "FATAL: ",e
-      broken = true
-    else
-      print "WARNING: ",e," continuing since release_mode is on"
-      broken = true
-    endif
-  endif
-endsub
-
 
 ' append to our sprite list
 function aps(sprite)
@@ -2090,16 +1960,12 @@ sub do_credits()
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   last_controls = controls
   while controls[1,3] = 0 or last_controls[1,3] = controls[1,3]
-    ' one weird trick with ram - we shove the pokedata in _first_, then regen, them call the
-    ' main loop
-    if music_enabled
-      call ClearScreen()
-      call CodeSprite(ayc_pokedata)
-      call update_music_vbi
-      controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
-    endif
 
     call title_picture()
+    if music_enabled
+      call CodeSprite(ayc_pokedata)
+      call update_music_vbi
+    endif
     call ReturnToOriginSprite()
     call IntensitySprite(127)
     for j = 1 to (Ubound(credits_sprite)-1) step 2
@@ -2130,17 +1996,14 @@ sub do_menu()
   no_input_frames = 0
   demo_mode = false
   while in_menu
-    ' one weird trick with ram - we shove the pokedata in _first_, then regen, them call the
+
     ' main loop
+    call title_picture()
     if music_enabled
-      call ClearScreen()
       call CodeSprite(ayc_pokedata)
       call update_music_vbi
       controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
     endif
-
-    ' main loop
-    call title_picture()
     call ReturnToOriginSprite()
     call IntensitySprite(127)
     for j = 1 to Ubound(options_sprite)
