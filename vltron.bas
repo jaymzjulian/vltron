@@ -2002,7 +2002,6 @@ sub do_menu()
     if music_enabled
       call CodeSprite(ayc_pokedata)
       call update_music_vbi
-      controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
     endif
     call ReturnToOriginSprite()
     call IntensitySprite(127)
