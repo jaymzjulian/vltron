@@ -21,7 +21,6 @@ title_enabled = true
 debug_status = false
 
 
-dualport_objreturn = 0
 ' This is almost certainly wrong/destructive!
 ' but is.... probably enough?
 dualport_return = 1
@@ -177,7 +176,7 @@ if buffer_mode = 1
   ' number of buffers.  
   '
   ' Currently, we non-optionally consume 70 bytes of dpram per buffer - so 4 buffers would be 280 bytes of dpram. 
-  buffer_count = 6
+  buffer_count = 8
   ' rate of playback - 50hz by default...
   player_rate = 50
   ' you'll need to allow for max_regs*buffer_count worth of iram at this location 
@@ -1071,7 +1070,6 @@ if demo_mode = false
   call IntensitySprite(127)
   call SetFrameRate(vx_frame_rate)
   if music_enabled
-    call aps(CodeSprite({$86, $00, $b7, dualport_objreturn/256, dualport_objreturn mod 256}))
     call aps(CodeSprite(ayc_pokedata))
     call aps(CodeSprite(ayc_init))
   endif
@@ -1151,10 +1149,6 @@ function aps_rto()
   all_origins[total_objects] = true
   r=all_sprites[total_objects]
   if music_enabled
-    ' place a sync object here so that we can see where the music player is up to...
-    ' lda #total_objects, sta_zp dualport_objreturn
-    ' total_objects+1 due to the additional object that is us!
-    call aps(CodeSprite({$86, total_objects, $b7, dualport_objreturn / 256, dualport_objreturn mod 256}))
     call aps(CodeSprite(ayc_playcode))
   endif
   return r
@@ -1178,7 +1172,6 @@ sub drawscreen
   
   ' ayc init :)
   if music_enabled
-    call aps(CodeSprite({$86, $00, $b7, dualport_objreturn/256, dualport_objreturn mod 256}))
     call aps(CodeSprite(ayc_pokedata))
     call aps(CodeSprite(ayc_init))
   endif
@@ -1342,13 +1335,11 @@ sub update_music_vbi
   ayc_tick = GetTickCount()
   ayc_played_this_frame = 0
   if ayc_buffer_played >= 0 
-		' wait for the dualport to have returned
-		' why is this a sequence?  because if not, bad things happen in the bathroom...
-		' once we've hit it, we update the codesprite to chang the sequence for the next run, so that we
-		' don't lose track	
-    '
-    ' if we don't at least start within 10 ticks, go away
-		while Peek(dualport_status) != ayc_dp_sequence and ((Peek(dualport_status) &1) != 0 or (GetTickCount()-ayc_tick)<10) and (GetTickCount()-ayc_tick)<960
+    ' have a 1 second timeout on this - we've simplified the term since the '&1' could never ever be matched
+    ' anyhow - the sequence either _is_, or _is not_.  If it _is not_, we wait at least 10 ticks for
+    ' the first code to be executed.  We finally add a 1 second timeout - this should never ever get hit, but it'll cause
+    ' us to break out...
+		while ((Peek(dualport_status) != ayc_dp_sequence) or (GetTickCount()-ayc_tick)<10) and (GetTickCount()-ayc_tick)<960
       if irq_mode = 0
         call ayc_update_timer
       endif
