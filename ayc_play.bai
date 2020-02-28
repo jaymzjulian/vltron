@@ -192,6 +192,7 @@ sub ayc_update_timer
   if ayc_buffer_overflow == true
     ayc_ticked = int(music_target)
     call Poke(flag_loc,0)
+    ayc_buffer_overflow = false
   endif
   to_tick = int(music_target) - ayc_ticked
   if to_tick > 0

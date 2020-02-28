@@ -186,9 +186,6 @@ if music_enabled
   call load_and_init("vxtron.ayc")
 endif
 
-ayc_start_time = GetTickCount()
-
-
 max_player_count = 4
 player_count = 4
 x_move = { 0, 1, 0, -1 }
