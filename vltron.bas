@@ -142,6 +142,7 @@ buffer_mode = 1
 
 ' should we use IRQ based timing, or Poke based timing?
 irq_mode = 0
+ayc_buffer_overflow = false
 
 ' do we wait for the next frame to be "due" before we continue?
 buffer_mode_preserve_refresh = 0
@@ -176,7 +177,8 @@ if buffer_mode = 1
   ' number of buffers.  
   '
   ' Currently, we non-optionally consume 70 bytes of dpram per buffer - so 4 buffers would be 280 bytes of dpram. 
-  buffer_count = 8
+  lframe = 0
+  buffer_count = 6
   ' rate of playback - 50hz by default...
   player_rate = 50
   ' you'll need to allow for max_regs*buffer_count worth of iram at this location 
@@ -1315,11 +1317,16 @@ endsub
 sub ayc_update_timer
   current_tick = GetTickCount() - ayc_start_time 
   music_target = (current_tick / 960.0) * player_rate + 1
+  if ayc_buffer_overflow == true
+    ayc_ticked = int(music_target)
+    call Poke(flag_loc,0)
+  endif
   to_tick = int(music_target) - ayc_ticked
   if to_tick > 0
     ayc_ticked = ayc_ticked + 1
     call Poke(flag_loc, Peek(flag_loc)+1)
   endif
+  ayc_buffer_overflow = false
 endsub
 
 ' this function is only used in buffer mode :)
@@ -1339,13 +1346,14 @@ sub update_music_vbi
     ' anyhow - the sequence either _is_, or _is not_.  If it _is not_, we wait at least 10 ticks for
     ' the first code to be executed.  We finally add a 1 second timeout - this should never ever get hit, but it'll cause
     ' us to break out...
-		while ((Peek(dualport_status) != ayc_dp_sequence) or (GetTickCount()-ayc_tick)<10) and (GetTickCount()-ayc_tick)<960
+		while ((Peek(dualport_status) != ayc_dp_sequence) or (GetTickCount()-ayc_tick)<10 and ayc_dp_sequence!=1) _
+          and (GetTickCount()-ayc_tick)<960
       if irq_mode = 0
         call ayc_update_timer
       endif
 		endwhile
 		if Peek(dualport_status) != ayc_dp_sequence
-      print "ohai, we didn't actuatlly update... weird - dualport_status=" +Peek(dualport_status)+" expected "+ayc_dp_sequence
+      print "ohai, we didn't actuatlly update in "+(GetTickCount()-ayc_tick)+"... weird - dualport_status=" +Peek(dualport_status)+" expected "+ayc_dp_sequence
     endif
     'print "endframe"
     ' reset benchmark counter once we've synced ;)
@@ -1355,8 +1363,10 @@ sub update_music_vbi
 	  ' fill any used buffers with new sound data
   	ayc_played_this_frame = Peek(dualport_return)
     if ayc_played_this_frame >= buffer_count
-      print "WARN: AYC buffer limit of "+ayc_played_this_frame+" hit - consider increasing buffer size..."
+      print "WARN: AYC buffer limit of "+ayc_played_this_frame+" hit in "+(((GetTickCount()-lframe)/960.0)*1000.0)+" ms - consider increasing buffer size..."
+      ayc_buffer_overflow = true
     endif
+    lframe = GetTickCount()
     for i = 1 to ayc_played_this_frame
       call play_that_music
     next
