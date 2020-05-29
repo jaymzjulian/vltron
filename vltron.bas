@@ -3,9 +3,9 @@
 ' For the vectrex32 platform
 '
 
-if version() < 123
+if version() < 124
   call MoveSprite(-40, 0)
-  call TextSprite("VXTRON REQUIRES FIRMWARE 1.23")
+  call TextSprite("VXTRON REQUIRES FIRMWARE 1.24")
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   last_controls = controls
   while controls[1,3] = 0
@@ -126,6 +126,7 @@ max_demo_frames = 450
 
 include "ayc_play.bai"
 print "Passed BAI"
+include "explosion.bai"
 
 ' ----------------------------------------------------------------------
 ' The Game
@@ -351,7 +352,32 @@ last_controls = controls
 
 ' set up the screen and the radar box
 dim cycle_sprite[4]
+dim player_ispr[4]
+dim line_ispr[4]
+dim map_ispr[4]
+dim trail_spr[4]
+dim trail3d_spr[4]
+dim rider_ispr[4]
+dim exploding_cycle
 dim rider_sprite[4]
+
+' set up some explosion stuff first!
+exploding = { false, false, false, false }
+' copy our exploding data in here...
+exptime = { 0, 0, 0, 0 }
+world_scale = 1.0
+x_impulse = 2.5
+y_impulse =3.0
+z_impulse = 2.5
+x_random = 2.5
+y_random = 5.0
+z_random = 2.5
+explosion_time = 2.0
+explosion_fps = 5
+' we only need one of these, since we're using the cache!
+exploding_cycle = prepare_explosion(3, lc_object, world_scale, {0, 0, 0}, {x_impulse, y_impulse, z_impulse}, {x_random, y_random, z_random}, 9.8, -2.5, false)
+call fill_cache(exploding_cycle, Int(explosion_time * explosion_fps), explosion_fps)
+
 for p = 1 to player_count
   cycle_sprite[p] = Lines3dSprite(lc_object)
   if rider_enabled
@@ -617,7 +643,7 @@ while game_is_playing do
     ' process collisions
     if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
       alive[p] = false
-      require_redraw = true
+      exploding[p] = true
     else
       arena[player_y[p, player_pos[p]] * arena_size_x  + player_x[p, player_pos[p]]] = p
     endif
@@ -653,6 +679,35 @@ while game_is_playing do
   if run_count > 0
     last_controls = controls
   endif
+  
+  for p = 1 to player_count
+    if exploding[p] = true
+      ' this is terrible.  don't do this.... instead, jj, have a better fcunction
+      exploding_cycle.time = exptime[p]
+      new_data = cached_explosion(exploding_cycle)
+      call SpriteSetData(cycle_sprite[p], new_data)
+      exptime[p] = exploding_cycle.time
+      real_time = (GetTickCount() - exptime[p]) / 960.0
+      if real_time > explosion_time
+        real_time = explosion_time
+        exploding[p] = false
+        ' FIXME: disable the sprite for performance here
+        call SpriteEnable(cycle_sprite[p], false)
+        call SpriteEnable(trail_spr[p], false)
+        call SpriteEnable(trail3d_spr[p], false)
+        if rider_enabled = true
+          call SpriteEnable(rider_sprite[p], false)
+        endif
+      endif
+      new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
+      call SpriteIntensity(line_ispr[p], new_intensity)
+      call SpriteIntensity(map_ispr[p], new_intensity)
+      call SpriteIntensity(player_ispr[p], new_intensity)
+      if rider_enabled
+        call SpriteIntensity(rider_ispr[p], new_intensity)
+      endif
+    endif
+  next
 
   ' quit demo mode on button press
   if demo_mode = true
@@ -916,7 +971,9 @@ if demo_mode = false
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
     call TextListSprite(rank_list[display_count])
-    call CodeSprite(ayc_playcode)
+    if music_enabled
+      call CodeSprite(ayc_playcode)
+    endif
   next
   call TextSprite("GAME OVER PRESS 2+3")
   if music_enabled
@@ -973,6 +1030,7 @@ function aps_rto()
 endfunction
 
 sub drawscreen
+  now=GetTickCount()
   dim p
   ' draw!
   '
@@ -1012,10 +1070,10 @@ sub drawscreen
       {DrawTo, map_x, map_y } }))
 
   for p = 1 to player_count
-    if alive[p]
+    if alive[p] or exploding[p]
     ' draw the 2D representation
     call aps_rto()
-    call aps(IntensitySprite(player_intensity[p]))
+    map_ispr[p] = aps(IntensitySprite(player_intensity[p]))
     dim foome[player_pos[p], 3]
     foome[1, 1] = MoveTo
     foome[1, 2] = (player_x[p, 1] * map_scale) + map_x
@@ -1026,11 +1084,11 @@ sub drawscreen
       foome[seg, 3] = (player_y[p, seg] * map_scale) + map_y
     next
     player_trail[p] = foome
-    call aps(LinesSprite(player_trail[p]))
+    trail_spr[p] = aps(LinesSprite(player_trail[p]))
 
     ' and the 3D representation
     call aps_rto()
-    call aps(IntensitySprite(player_intensity[p]))
+    line_ispr[p] = aps(IntensitySprite(player_intensity[p]))
     if split_screen
       call aps(LinesSprite(viewport_translate))
     endif
@@ -1067,21 +1125,21 @@ sub drawscreen
     foome3d[1, 1] = MoveTo
 
     player_trail3d[p] = foome3d
-    ptr = aps(Lines3dSprite(player_trail3d[p]))
-    call SpriteClip(ptr, clippingRect)
+    trail3d_spr[p] = aps(Lines3dSprite(player_trail3d[p]))
+    call SpriteClip(trail3d_spr[p], clippingRect)
     endif
   next
   
   ' put these in a secod loop so they appear at the end of the display list...
   for p = 1 to player_count
-    if alive[p]
+    if alive[p] or exploding[p]
         ' return to origin before doing 3d things
         call aps_rto()
         call aps(ScaleSprite(cycle_vx_scale_factor, (162 / 0.097) * cycle_local_scale))
         if split_screen
           call aps(LinesSprite(viewport_translate_scaled))
         endif
-        call aps(IntensitySprite(player_intensity[p]))
+        player_ispr[p] = aps(IntensitySprite(player_intensity[p]))
         cycle_sprite[p] = aps(Lines3dSprite(lc_object))
         call SpriteClip(cycle_sprite[p], cycle_clippingRect)
         
@@ -1092,7 +1150,7 @@ sub drawscreen
           if split_screen
             call aps(LinesSprite(viewport_translate_scaled))
           endif
-          call aps(IntensitySprite(player_intensity[p]))
+          rider_ispr[p] = aps(IntensitySprite(player_intensity[p]))
           rider_sprite[p] = aps(Lines3dSprite(rider()))
           call SpriteClip(rider_sprite[p], cycle_clippingRect)
         endif
@@ -1124,13 +1182,31 @@ sub drawscreen
     ' exit the music player and reset our objretur
     call aps(CodeSprite(ayc_exit))
   endif
-
+  
+  print "redraw took "+(GetTickCount()-now)
 endsub
+
+function reado32(filename)
+  file = fopen(filename, "rt")
+  dimensions = Int(Val(fgets(file)))
+  command_count = Int(Val(fgets(file)))
+  print "Reading "+command_count+"commands of "+dimensions+"d object from "+filename
+  dim o[command_count, dimensions + 1]
+  for j = 1 to command_count
+    o[j, 1] = Int(Val(fgets(file)))
+    for k = 1 to dimensions
+      o[j, k+1] = Val(fgets(file))
+    next
+  next
+  print "done!"
+  return o
+endfunction
 
 '--------------------------------------------------------------
 ' The 3d model of the lightcycle
 '-------------------------------------------------------------
 function lightcycle()
+  'return reado32("lightcycle.o32")
 mysprite={ _
   {MoveTo,-0.284963,-0.242065,1.085209},   {DrawTo, -0.284963,-0.550938,1.394082} , _
   {DrawTo, -0.452639,-0.242065,1.394082} , _

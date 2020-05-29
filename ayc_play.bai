@@ -1,4 +1,5 @@
 include "ayc_settings.bai"
+AYC_MAX=8000
 
 '---------------------------
 ' GLOBALS - these must be global 
@@ -413,7 +414,7 @@ sub load_and_init(filename)
 
   ' read the remainign bytes into the file - we otherwise have buffer pointers...
   i = ftell(fh)
-  ay_buffer_data = fread(20000, fh)
+  ay_buffer_data = fread(AYC_MAX, fh)
   ay_data_length = ftell(fh) - i
 
   ' fix the buffer pointers?

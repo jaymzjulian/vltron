@@ -1,0 +1,201 @@
+DEBUG_DATA=true
+' this function decomposes the object from
+' a connected set of linesprites, to a set of moveto/drawto
+' so that we are moving around indvidual lines.
+'
+' it will also precalculate the centrepoint atan2 angles, since we will absolutely 
+' need this for performance....
+'
+' Params:
+' dimensions - 2 or 3
+' obj - the LinesSprite format object
+' world_scale - scale of the world
+' point - where to explode
+' x_impulse - base impulse to hit object with on the x axis
+' y_impulse - base impulse to hit object with on the y axis
+' x_random - additional random impulse for x
+' y_random - additional random impulse for y
+' break_apart - true/false - do we break the vectors?
+function prepare_explosion(dimensions, obj, world_scale, point, impulse, random, gravity, ground, break_apart)
+  Struct ExpStruct {dest, accel, gravity, time, ground, cached_frame_count, cache_frame_time, cached_frames}
+  if break_apart
+    work_object = break_apart_object(obj, dimensions)
+  else
+    work_object = DeepCopy(obj)
+  endif
+  ' set up the acceleration table here for now
+  dim work_accel[Ubound(work_object), dimensions]
+  for vertex = 1 to Ubound(work_object)
+    if dimensions = 2
+      my_vector = {work_object[vertex, 2]-point[1], work_object[vertex, 3]-point[2]}
+    else
+      my_vector = {work_object[vertex, 2]-point[1], work_object[vertex, 3]-point[2],  work_object[vertex, 4]-point[3]}
+    endif
+    my_vector = my_vector / norm(my_vector)
+    my_vector = my_vector * world_scale
+    for x = 1 to dimensions
+      rfactor = ((rand() mod 256)/256.0) * random[x]
+      work_accel[vertex, x] = my_vector[x] * (impulse[x] + rfactor)
+    next
+  next
+  exp_obj = ExpStruct(work_object, work_accel, gravity*world_scale, 0.0, ground)
+  return exp_obj
+endfunction
+
+' This function prepares a cache with all of the explosion frames
+' This will allow to perform a lot of explosions when CPU time is at a premium -
+' we ran into this with vxtron, where explosing _one_ cycle was fine, but explosing _four_
+' cycles caused failures
+sub fill_cache(object, frames, fps)
+  ram_used = 0
+  saved_obj = deepcopy(object.dest)
+  interval = 1.0 / fps
+  object.cache_frame_time = interval
+  dim work_frames[frames]
+  for f = 1 to frames
+    ram_used = ram_used + Ubound(object.dest)*4*4
+    print "Generating frame "+f+" Of "+Ubound(object.dest)+" vertecis @ "+ram_used+" bytes ram"
+    if Ubound(object.dest) == 3
+      ' call explode3d
+      call explode3d_impl(object, interval)
+    else
+      ' call explode2d
+      call explode2d_impl(object, interval)
+    endif
+    work_frames[f] = deepcopy(object.dest)
+  next
+  object.dest = deepcopy(saved_obj)
+  object.cached_frames = work_frames
+  object.cached_frame_count = frames
+endsub
+
+' grab an animation frame from the cache
+function cached_explosion(object)
+  ' update the time
+  now = GetTickCount()
+  if object.time = 0
+    object.time = now
+    return object.cached_frames[1]
+  endif
+  real_time = (now - object.time) / 960.0
+  frame_num = (real_time / object.cache_frame_time) + 1
+  if frame_num >= object.cached_frame_count
+    frame_num = (object.cached_frame_count-1)
+  endif
+  if DEBUG_DATA
+    print "returnning frame #"+frame_num+" for "+real_time+" ticks"
+  endif
+  return object.cached_frames[frame_num+1]
+endfunction
+
+' This takes an object with connected lines, and rbeaks them into individual lines that
+' we can fling around - this is particularly useful for high line count objects
+function break_apart_object(obj, d)
+  final_vcount = 0
+  for j = 1 to Ubound(obj)
+    if obj[j, 1] = DrawTo
+      final_vcount = final_vcount + 2
+    endif
+  next
+  dim workobj[final_vcount, d+1]
+  v = 1
+  last_v = {0,0,0}
+  for j = 1 to Ubound(obj)
+    if obj[j, 1] = DrawTo
+      workobj[v, 1] = MoveTo
+      workobj[v+1, 1] = DrawTo
+      for x = 1 to d
+        workobj[v, x+1] = lastv[x]
+        workobj[v+1, x+1] = obj[j, x+1]
+      next
+      v = v + 2
+    endif
+    if d = 2
+      lastv = { obj[j, 2], obj[j, 3] }
+    else
+      lastv = { obj[j, 2], obj[j, 3], obj[j, 4] }
+    endif
+  next
+  return workobj
+endfunction
+
+' this function does the actual exploding in realtime - see the above cache function
+' if you don't want to calcualte this real time
+sub explode2d(workobj)
+  ' update the time
+  now = GetTickCount()
+  if workobj.time = 0
+    workobj.time = now
+    return
+  endif
+  real_time = (now - workobj.time) / 960.0
+  workobj.time = now
+
+  call explode2d_impl(workobj, real_time)
+endsub
+
+sub explode2d_impl(workobj, real_time)
+  ' optimization so we're not looking these up constantly
+  dest = workobj.dest
+  accel = workobj.accel
+  ground = workobj.ground
+  gravity = workobj.gravity * real_time
+
+  ' accelerate the verticies
+  for vertex = 1 to Ubound(dest)
+    ' shift according to acccel*time
+    dest[vertex, 2] = dest[vertex, 2] + accel[vertex, 1] * real_time
+    dest[vertex, 3] = dest[vertex, 3] + accel[vertex, 2] * real_time
+
+    ' apply gravity 
+    accel[vertex, 2] = accel[vertex, 2] - gravity 
+
+    ' we hit the ground - great!
+    if dest[vertex, 3] < ground
+      dest[vertex,3] = ground
+      accel[vertex, 1] = 0
+      accel[vertex, 2] = 0
+    endif
+  next
+endsub
+
+' this function does the actual exploding in realtime - see the above cache function
+' if you don't want to calcualte this real time
+sub explode3d(workobj)
+  ' update the time
+  now = GetTickCount()
+  if workobj.time = 0
+    workobj.time = now
+    return
+  endif
+  real_time = (now - workobj.time) / 960.0
+  workobj.time = now
+  call explode3d_impl(workobj, real_time)
+endsub
+
+sub explode3d_impl(workobj, real_time)
+  ' accelerate the verticies
+  grav_inc = workobj.gravity * real_time
+  accel = workobj.accel
+  dest = workobj.dest
+  ground = workobj.ground
+  for vertex = 1 to Ubound(dest)
+    ' shift according to acccel*time
+    dest[vertex, 2] = dest[vertex, 2] + accel[vertex, 1] * real_time
+    dest[vertex, 3] = dest[vertex, 3] + accel[vertex, 2] * real_time
+    dest[vertex, 4] = dest[vertex, 4] + accel[vertex, 3] * real_time
+    
+  ' apply gravity 
+    accel[vertex, 2] = accel[vertex, 2] - grav_inc
+  
+  ' we hit the ground - great!
+    if dest[vertex, 3] < ground
+      dest[vertex,3] = ground
+      accel[vertex, 1] = 0
+      accel[vertex, 2] = 0
+      accel[vertex, 3] = 0
+    endif
+
+  next
+endsub
+

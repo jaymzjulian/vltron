@@ -1,8 +1,8 @@
-if [ x$1 = x ]; then
+if [ "x$1" = "x" ]; then
   echo "REMEMBER RLEEASE ID"
 fi
 mkdir vxtron32
-cp vltron.bas vxtron32/vxtron32.bas
+python ../objtools/vx32-bundle.py vltron.bas vxtron32/vxtron32.bas      
 sed -i "s/GIT MASTER/$*/g" vxtron32/vxtron32.bas
 cp vxtron.ayc vxtron32/
 cp README.md vxtron32/
