@@ -3,6 +3,7 @@
 ' For the vectrex32 platform
 '
 
+
 if version() < 124
   call MoveSprite(-40, 0)
   call TextSprite("VXTRON REQUIRES FIRMWARE 1.24")
@@ -15,9 +16,11 @@ if version() < 124
   stop
 endif
 
+mem
+
 ' globals for gameplay :)
-music_enabled = true
-title_enabled = true
+music_enabled = false
+title_enabled = false
 debug_status = false
 
 
@@ -684,8 +687,15 @@ while game_is_playing do
         real_time = explosion_time
         exploding[p] = false
       endif
+      now = GetTickCount()
+      trail_height = Int(2.0 * ((explosion_time - real_time) / explosion_time))
+      for seg = 1 to (player_pos[p] - 1)
+        player_trail3d[p][(seg-1)*4+3, 3] = trail_height
+        player_trail3d[p][(seg-1)*4+3, 4] = trail_height
+      next
+      print "td: "+(GetTickCount()-now)
       new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
-      call SpriteIntensity(line_ispr[p], new_intensity)
+      'call SpriteIntensity(line_ispr[p], new_intensity)
       call SpriteIntensity(map_ispr[p], new_intensity)
       call SpriteIntensity(player_ispr[p], new_intensity)
       if rider_enabled
@@ -839,18 +849,20 @@ while game_is_playing do
   for p = 1 to player_count
     ' points are based entirely on time :)
     ' i.e. if we're alive, then we're alive!
-    if alive[p] = true
-      player_rank[p] = GetTickCount() - game_start_time
+    if alive[p] = true or exploding[p]
+      if alive[p]
+        player_rank[p] = GetTickCount() - game_start_time
+      endif
       alive_players = alive_players + 1
       'print "player "+p+" is alive - "+player_rank[p]
     endif
     if computer_only[p] = false
       total_humans = total_humans + 1
     endif
-    if alive[p] = true and computer_only[p] = false
+    if (alive[p] or exploding[p]) and computer_only[p] = false
       alive_humans = alive_humans + 1
     endif
-    if alive[p] = true and computer_only[p] = true
+    if (alive[p] or exploding[p]) and computer_only[p] = true
       alive_computers = alive_computers + 1
     endif
   next
