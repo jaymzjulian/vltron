@@ -688,12 +688,11 @@ while game_is_playing do
         exploding[p] = false
       endif
       now = GetTickCount()
-      trail_height = Int(2.0 * ((explosion_time - real_time) / explosion_time))
+      trail_height = 2.0 * ((explosion_time - real_time) / explosion_time)
       for seg = 1 to (player_pos[p] - 1)
         player_trail3d[p][(seg-1)*4+3, 3] = trail_height
         player_trail3d[p][(seg-1)*4+3, 4] = trail_height
       next
-      print "td: "+(GetTickCount()-now)
       new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
       'call SpriteIntensity(line_ispr[p], new_intensity)
       call SpriteIntensity(map_ispr[p], new_intensity)
