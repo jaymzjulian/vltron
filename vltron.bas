@@ -490,8 +490,6 @@ while game_is_playing do
     last_frame_time = ctick
   endif
 
-  require_redraw = false
-
   lft = GetTickCount() - last_begin
 
   ' update our music routine!
@@ -614,17 +612,16 @@ while game_is_playing do
       player_pos[p] = player_pos[p] + 1
       player_x[p, player_pos[p]] = player_x[p, player_pos[p] - move_speed] 
       player_y[p, player_pos[p]] = player_y[p, player_pos[p] - move_speed] 
-      require_redraw = true
-      s = GetTickCount()
-      call drawscreen
-      rdt = s - GetTickCount()
+      player_trail3d[p] = get_3d_trail(p)
+      player_trail[p] = get_trail(p)
+      call SpriteSetData(trail_spr[p], player_trail[p])
+      call SpriteSetData(trail3d_spr[p], player_trail3d[p])
     endif
 
     ' move the cycles
     player_x[p, player_pos[p]] = player_x[p, player_pos[p]] + x_move[player_direction[p]+1]
     player_y[p, player_pos[p]] = player_y[p, player_pos[p]] + y_move[player_direction[p]+1]
 
-    if require_redraw = false
       ' update the 2d trail
 
       player_trail[p][player_pos[p], 2] = player_x[p, player_pos[p]] * map_scale + map_x
@@ -638,7 +635,6 @@ while game_is_playing do
         player_trail3d[p][(player_pos[p]-2)*4+4, 2] = player_x[p, player_pos[p]] - arena_size_x/2
         player_trail3d[p][(player_pos[p]-2)*4+4, 4] = player_y[p, player_pos[p]] - arena_size_y/2
       endif
-    endif
   
     ' process collisions
     if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
@@ -668,10 +664,6 @@ while game_is_playing do
   run_count = run_count + 1
   endwhile
 
-  ' if require redraw, do it now
-  if require_redraw and game_started 
-    call drawscreen
-  endif
   if music_enabled
     call ayc_update_timer()
   endif
@@ -691,13 +683,6 @@ while game_is_playing do
       if real_time > explosion_time
         real_time = explosion_time
         exploding[p] = false
-        ' FIXME: disable the sprite for performance here
-        call SpriteEnable(cycle_sprite[p], false)
-        call SpriteEnable(trail_spr[p], false)
-        call SpriteEnable(trail3d_spr[p], false)
-        if rider_enabled = true
-          call SpriteEnable(rider_sprite[p], false)
-        endif
       endif
       new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
       call SpriteIntensity(line_ispr[p], new_intensity)
@@ -706,6 +691,19 @@ while game_is_playing do
       if rider_enabled
         call SpriteIntensity(rider_ispr[p], new_intensity)
       endif
+    endif
+  next
+
+  ' disable dead people
+  for p = 1 to player_count
+    if alive[p] = false and exploding[p] = false
+        ' FIXME: disable the sprite for performance here
+        call SpriteEnable(cycle_sprite[p], false)
+        call SpriteEnable(trail_spr[p], false)
+        call SpriteEnable(trail3d_spr[p], false)
+        if rider_enabled = true
+          call SpriteEnable(rider_sprite[p], false)
+        endif
     endif
   next
 
@@ -1029,6 +1027,54 @@ function aps_rto()
   return r
 endfunction
 
+function get_trail(p)
+    dim foome[player_pos[p], 3]
+    foome[1, 1] = MoveTo
+    foome[1, 2] = (player_x[p, 1] * map_scale) + map_x
+    foome[1, 3] = (player_y[p, 1] * map_scale) + map_y
+    for seg = 2 to player_pos[p] 
+      foome[seg, 1] = DrawTo
+      foome[seg, 2] = (player_x[p, seg] * map_scale) + map_x
+      foome[seg, 3] = (player_y[p, seg] * map_scale) + map_y
+    next
+  return foome
+endfunction
+
+function get_3d_trail(p)
+    dim foome3d[(player_pos[p]-1)*4, 4]
+
+    for seg = 1 to (player_pos[p] - 1)
+      ' bottom right
+      foome3d[(seg-1)*4+1, 1] = DrawTo
+      foome3d[(seg-1)*4+1, 2] = player_x[p, seg + 1]  - arena_size_x/2
+      foome3d[(seg-1)*4+1, 3] = 0 
+      foome3d[(seg-1)*4+1, 4] = player_y[p, seg + 1] - arena_size_y/2
+      
+			' bottom left
+      foome3d[(seg-1)*4+2, 1] = DrawTo
+      foome3d[(seg-1)*4+2, 2] = player_x[p, seg] - arena_size_x/2
+      foome3d[(seg-1)*4+2, 3] = 0
+      foome3d[(seg-1)*4+2, 4] = player_y[p, seg] - arena_size_y/2
+
+       ' to up left
+      foome3d[(seg-1)*4+3, 1] = DrawTo
+      foome3d[(seg-1)*4+3, 2] = player_x[p, seg] - arena_size_x/2
+      foome3d[(seg-1)*4+3, 3] = 2 
+      foome3d[(seg-1)*4+3, 4] = player_y[p, seg] - arena_size_y/2
+      
+      ' to up right 
+      foome3d[(seg-1)*4+4, 1] = DrawTo
+      foome3d[(seg-1)*4+4, 2] = player_x[p, seg + 1] - arena_size_x/2
+      foome3d[(seg-1)*4+4, 3] = 2
+      foome3d[(seg-1)*4+4, 4] = player_y[p, seg + 1] - arena_size_y/2
+
+    next
+    ' make the start of the trail a move :)
+    foome3d[1, 1] = MoveTo
+
+  return foome3d
+endfunction
+
 sub drawscreen
   now=GetTickCount()
   dim p
@@ -1074,16 +1120,7 @@ sub drawscreen
     ' draw the 2D representation
     call aps_rto()
     map_ispr[p] = aps(IntensitySprite(player_intensity[p]))
-    dim foome[player_pos[p], 3]
-    foome[1, 1] = MoveTo
-    foome[1, 2] = (player_x[p, 1] * map_scale) + map_x
-    foome[1, 3] = (player_y[p, 1] * map_scale) + map_y
-    for seg = 2 to player_pos[p] 
-      foome[seg, 1] = DrawTo
-      foome[seg, 2] = (player_x[p, seg] * map_scale) + map_x
-      foome[seg, 3] = (player_y[p, seg] * map_scale) + map_y
-    next
-    player_trail[p] = foome
+    player_trail[p] = get_trail(p)
     trail_spr[p] = aps(LinesSprite(player_trail[p]))
 
     ' and the 3D representation
@@ -1093,38 +1130,7 @@ sub drawscreen
       call aps(LinesSprite(viewport_translate))
     endif
     'dim foome3d[player_pos[p]*4-2, 4]
-    dim foome3d[(player_pos[p]-1)*4, 4]
-
-    for seg = 1 to (player_pos[p] - 1)
-      ' bottom right
-      foome3d[(seg-1)*4+1, 1] = DrawTo
-      foome3d[(seg-1)*4+1, 2] = player_x[p, seg + 1]  - arena_size_x/2
-      foome3d[(seg-1)*4+1, 3] = 0 
-      foome3d[(seg-1)*4+1, 4] = player_y[p, seg + 1] - arena_size_y/2
-      
-			' bottom left
-      foome3d[(seg-1)*4+2, 1] = DrawTo
-      foome3d[(seg-1)*4+2, 2] = player_x[p, seg] - arena_size_x/2
-      foome3d[(seg-1)*4+2, 3] = 0
-      foome3d[(seg-1)*4+2, 4] = player_y[p, seg] - arena_size_y/2
-
-       ' to up left
-      foome3d[(seg-1)*4+3, 1] = DrawTo
-      foome3d[(seg-1)*4+3, 2] = player_x[p, seg] - arena_size_x/2
-      foome3d[(seg-1)*4+3, 3] = 2 
-      foome3d[(seg-1)*4+3, 4] = player_y[p, seg] - arena_size_y/2
-      
-      ' to up right 
-      foome3d[(seg-1)*4+4, 1] = DrawTo
-      foome3d[(seg-1)*4+4, 2] = player_x[p, seg + 1] - arena_size_x/2
-      foome3d[(seg-1)*4+4, 3] = 2
-      foome3d[(seg-1)*4+4, 4] = player_y[p, seg + 1] - arena_size_y/2
-
-    next
-    ' make the start of the trail a move :)
-    foome3d[1, 1] = MoveTo
-
-    player_trail3d[p] = foome3d
+    player_trail3d[p] = get_3d_trail(p)
     trail3d_spr[p] = aps(Lines3dSprite(player_trail3d[p]))
     call SpriteClip(trail3d_spr[p], clippingRect)
     endif
