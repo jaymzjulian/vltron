@@ -515,7 +515,7 @@ while game_is_playing do
     controls = WaitForFrame(JoystickDigital, joytype, JoystickX + JoystickY)
     wait_for_frame_time = GetTickCount()-f
     if wait_for_frame_time > 100
-      print "Drawscreen took ",wait_for_frame_time," lastov: ",overflowed
+      print "Drawscreen took ",wait_for_frame_time
     endif
     last_begin = GetTickCount()
 
