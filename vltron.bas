@@ -483,6 +483,7 @@ while game_is_playing do
   ' always generate fps_val, since we use it for updating clipping in order to try and hit our target frame rate
   ctick = GetTickCount()
   fps_val = 960.0 / (ctick - last_frame_time) 
+  'print "TICKS: "+(ctick - last_frame_time)
   if status_enabled
     if debug_status
       vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
@@ -498,8 +499,8 @@ while game_is_playing do
     else
       status_display[1,3] = "FPS: "+Int(fps_val)
     endif
-    last_frame_time = ctick
   endif
+  last_frame_time = ctick
 
   lft = GetTickCount() - last_begin
 
@@ -976,7 +977,7 @@ while game_is_playing do
   last_player_clipped = new_last_player_clipped
   endif
   clip_time = GetTickCount() - ctick
-  'print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
+  print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
   ' if we dropped frames, lets reduce our clipping
   if fps_val < target_fps
     'print "reduce - fps_val = "+fps_val+" target = "+target_fps
