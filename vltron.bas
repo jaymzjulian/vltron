@@ -19,8 +19,8 @@ endif
 mem
 
 ' globals for gameplay :)
-music_enabled = false
-title_enabled = false
+music_enabled = true
+title_enabled = true
 debug_status = false
 
 
@@ -143,6 +143,24 @@ dim y_move[4]
 dim player_rank[4]
 lc_object = lightcycle()
 
+  ' set up some explosion stuff first!
+exploding = { false, false, false, false }
+' copy our exploding data in here...
+exptime = { 0, 0, 0, 0 }
+world_scale = 1.0
+x_impulse = 2.5
+y_impulse =3.0
+z_impulse = 2.5
+x_random = 2.5
+y_random = 5.0
+z_random = 2.5
+explosion_time = 2.0
+explosion_fps = 5
+' we only need one of these, since we're using the cache!
+exploding_cycle = prepare_explosion(3, lc_object, world_scale, {0, 0, 0}, {x_impulse, y_impulse, z_impulse}, {x_random, y_random, z_random}, 9.8, -2.5, false)
+now=GetTickCount()
+call fill_cache(exploding_cycle, Int(explosion_time * explosion_fps), explosion_fps)
+print "Took "+(GetTickCount()-now)+" ticks"
 pl_button = 5
 pr_button = 6
 p2_controller = 1
@@ -368,22 +386,6 @@ dim rider_ispr[4]
 dim exploding_cycle
 dim rider_sprite[4]
 
-' set up some explosion stuff first!
-exploding = { false, false, false, false }
-' copy our exploding data in here...
-exptime = { 0, 0, 0, 0 }
-world_scale = 1.0
-x_impulse = 2.5
-y_impulse =3.0
-z_impulse = 2.5
-x_random = 2.5
-y_random = 5.0
-z_random = 2.5
-explosion_time = 2.0
-explosion_fps = 5
-' we only need one of these, since we're using the cache!
-exploding_cycle = prepare_explosion(3, lc_object, world_scale, {0, 0, 0}, {x_impulse, y_impulse, z_impulse}, {x_random, y_random, z_random}, 9.8, -2.5, false)
-call fill_cache(exploding_cycle, Int(explosion_time * explosion_fps), explosion_fps)
 
 for p = 1 to player_count
   cycle_sprite[p] = Lines3dSprite(lc_object)
@@ -983,6 +985,8 @@ while game_is_playing do
   ' air number, and I'll probably tune it...
   cycle_view_distance = trail_view_distance / 2
 endwhile
+
+print "OUT OF GAME"
 
 if demo_mode = false
   call ClearScreen()
