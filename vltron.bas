@@ -983,7 +983,7 @@ while game_is_playing do
   endif
   ' cycles are considered 50% as important as trails.  This is entirely a finger in the
   ' air number, and I'll probably tune it...
-  cycle_view_distance = trail_view_distance / 2
+  cycle_view_distance = trail_view_distance * 0.75
 endwhile
 
 print "OUT OF GAME"
