@@ -181,13 +181,6 @@ arena_size_y = 128
 map_scale = ((arena_size_x/96.0) * local_scale)
 arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
-' define where our horizins are
-' we're going to make these dynamic, eventually...
-trail_view_distance = 64.0
-cycle_view_distance = 64.0
-target_fps = 20.0
-up_multiplier = 1.02
-down_multiplier = 1.0/1.02
 
 ' clip_trails seems to take more ticks than it saves in FPS - so it's off for now.
 ' clipping will just clip the cycle models, without that.  Ideally, we'd do a post-projection
@@ -394,6 +387,13 @@ for p = 1 to player_count
   endif
 next
 
+' define where our horizins are
+' we're going to make these dynamic, eventually...
+trail_view_distance = 64.0
+cycle_view_distance = 64.0
+target_fps = 20.0
+up_multiplier = 1.02
+down_multiplier = 1.0/1.02
 
 print "--------------------------------------------"
 print "local_scale ",local_scale
@@ -909,6 +909,9 @@ while game_is_playing do
 
   ' always clip all players...
   for p = 1 to player_count
+    if music_enabled
+      call ayc_update_timer()
+    endif
     ' this should be really just taken from the thing - need to switch to live data....
     player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, player_y[p, player_pos[p]] - arena_size_y/2}
     ' do a matrix sub 
@@ -926,6 +929,9 @@ while game_is_playing do
   ' but only SOMETIMES clip all players here
   new_last_player_clipped = 0
   for real_p = 1 to player_count
+    if music_enabled
+      call ayc_update_timer()
+    endif
     p = (((real_p - 1) + last_player_clipped) mod player_count) + 1
     otime = GetTickCount() - last_begin
     ' 32 ticks is our total budget for calculations - that equates to a 30 frames per second
