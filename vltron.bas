@@ -165,12 +165,16 @@ arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 ' define where our horizins are
 ' we're going to make these dynamic, eventually...
-trail_view_distance_sq = 64 * 64
-cycle_view_distance_sq = 64 * 64
+trail_view_distance = 64.0
+cycle_view_distance = 64.0
+target_fps = 30.0
+up_multiplier = 1.02
+down_multiplier = 1.0/1.02
+
 ' clip_trails seems to take more ticks than it saves in FPS - so it's off for now.
 ' clipping will just clip the cycle models, without that.  Ideally, we'd do a post-projection
 ' clip based on Z distance from camera, but alas we don't have that functionality right now :)
-clip_trails = false
+clip_trails = true
 clipping = true
 
 
@@ -473,9 +477,10 @@ while game_is_playing do
 
   ' show FPS before we get too far 
   ' this is at 960 hz - so we divide by 960 to get GPS
+  ' always generate fps_val, since we use it for updating clipping in order to try and hit our target frame rate
+  ctick = GetTickCount()
+  fps_val = 960.0 / (ctick - last_frame_time) 
   if status_enabled
-    ctick = GetTickCount()
-    fps_val = 960.0 / (ctick - last_frame_time) 
     if debug_status
       vx_pc = (wait_for_frame_time*100.0) / (ctick - last_frame_time)
       status_display[1,3] = "FPS: "+Int(fps_val) 
@@ -691,7 +696,7 @@ while game_is_playing do
       trail_height = 2.0 * ((explosion_time - real_time) / explosion_time)
       for seg = 1 to (player_pos[p] - 1)
         player_trail3d[p][(seg-1)*4+3, 3] = trail_height
-        player_trail3d[p][(seg-1)*4+3, 4] = trail_height
+        player_trail3d[p][(seg-1)*4+4, 4] = trail_height
       next
       new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
       'call SpriteIntensity(line_ispr[p], new_intensity)
@@ -894,24 +899,21 @@ while game_is_playing do
   ' n units away from the camera.  this might be terrible to do, but my inclination is that it makes sense!
   ctick = GetTickCount()
   if clipping
+  total_trail_vx = 0
+  clipped_trail_vx = 0
+  camera_pos_2d = { camera_position[1], camera_position[3] }
+
   for p = 1 to player_count
     ' this should be really just taken from the thing - need to switch to live data....
-    player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2}
+    player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, player_y[p, player_pos[p]] - arena_size_y/2}
     ' do a matrix sub 
-    dist_v = player_loc - camera_position
-    ' get dist^2
-    dist = dist_v[1] * dist_v[1] + dist_v[3] * dist_v[3]
+    dist = distance(player_loc, camera_pos_2d)
     ' just do the thing with sq co-orders
     ' this might be terrible to do, since 
-    if dist > cycle_view_distance_sq or (first_person = true and p = split_player)
+    if dist > cycle_view_distance or (first_person = true and p = split_player)
       call SpriteEnable(cycle_sprite[p], false)
       if rider_enabled
         call SpriteEnable(rider_sprite[p], false)
-      endif
-    else
-      call SpriteEnable(cycle_sprite[p], true)
-      if rider_enabled
-        call SpriteEnable(rider_sprite[p], true)
       endif
     endif
 
@@ -921,29 +923,47 @@ while game_is_playing do
       ' so we'll need to consider _both_ ends of the line we're drawing.
 
       ' preload the first cached entry
-      dist_v_a = {player_trail3d[p][1, 2], 0, player_trail3d[p][1, 4]} - camera_position
-      dist_a =  dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+      dist_a = distance({player_trail3d[p][1, 2], player_trail3d[p][1, 4]}, camera_pos_2d)
 
       for ele = 2 to Ubound(player_trail3d[p])
         ' this is from the last round, as a perf hack
         dist_b = dist_a
         ' and now our new round
-        dist_v_a = {player_trail3d[p][ele, 2], 0, player_trail3d[p][ele, 4]} - camera_position
-        dist_a = dist_v_a[1] * dist_v_a[1] + dist_v_a[3] * dist_v_a[3]
+        dist_a = distance({player_trail3d[p][ele, 2], player_trail3d[p][ele, 4]}, camera_pos_2d)
+ 
         ' FIXME: also check sign, so a long line going through our viewport does not
         ' get clipped - another obvious answer is tesselate those large lines, however
         ' if we do this, we start overflowing DP ram - but maybe a tesselation of, say, 
         ' 32 might be okay..... i'll have to experiment and see!
-        if (dist_a > trail_view_distance_sq) and (dist_b > trail_view_distance_sq)
+        if (dist_a > trail_view_distance) and (dist_b > trail_view_distance)
+          'print "CLIP: "+dist_a+"/"+dist_b+" to "+trail_view_distance
+          'print "trail:"+player_trail3d[p][ele, 2]+","+player_trail3d[p][ele, 4]+" vs "+camera_position[1]+","+camera_position[2]+","+camera_position[3]
           player_trail3d[p][ele, 1] = MoveTo
+          clipped_trail_vx = clipped_trail_vx + 1
         else
+          ' should we actually re-enable this by default?  unsure...
           player_trail3d[p][ele, 1] = DrawTo
+          total_trail_vx = total_trail_vx + 1
         endif
       next
     endif
   next
   endif
   clip_time = GetTickCount() - ctick
+  print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
+  ' if we dropped frames, lets reduce our clipping
+  if fps_val < target_fps
+    print "reduce - fps_val = "+fps_val+" target = "+target_fps
+    trail_view_distance = trail_view_distance * down_multiplier
+  ' if we did NOT drop frames, but we DID drop trails, then lets allow 
+  ' more distance
+  elseif clipped_trail_vx > 0
+    print "increase - fps_val = "+fps_val+" target = "+target_fps
+    trail_view_distance = trail_view_distance * up_multiplier
+  endif
+  ' cycles are considered 50% as important as trails.  This is entirely a finger in the
+  ' air number, and I'll probably tune it...
+  cycle_view_distance = trail_view_distance / 2
 endwhile
 
 if demo_mode = false
