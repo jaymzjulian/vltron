@@ -147,7 +147,7 @@ pl_button = 5
 pr_button = 6
 p2_controller = 1
 
-rider_enabled = true
+rider_enabled = false
 rider_is_duck = false
 
 local_scale = 64.0 / vx_scale_factor
@@ -452,6 +452,7 @@ demo_frames = 0
 intro_val = 3
 intro_scale_val = 127
 game_start_time = GetTickCount()
+last_player_clipped = 0
 
 while game_is_playing do
   ' 1 eor 3 = 2
@@ -698,8 +699,9 @@ while game_is_playing do
         player_trail3d[p][(seg-1)*4+3, 3] = trail_height
         player_trail3d[p][(seg-1)*4+4, 3] = trail_height
       next
+      ' the trail only goes to half intensity, so you can see it dropping!
       new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
-      'call SpriteIntensity(line_ispr[p], new_intensity)
+      'call SpriteIntensity(line_ispr[p], lines_intensity)
       call SpriteIntensity(map_ispr[p], new_intensity)
       call SpriteIntensity(player_ispr[p], new_intensity)
       if rider_enabled
@@ -903,6 +905,7 @@ while game_is_playing do
   clipped_trail_vx = 0
   camera_pos_2d = { camera_position[1], camera_position[3] }
 
+  ' always clip all players...
   for p = 1 to player_count
     ' this should be really just taken from the thing - need to switch to live data....
     player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, player_y[p, player_pos[p]] - arena_size_y/2}
@@ -916,8 +919,22 @@ while game_is_playing do
         call SpriteEnable(rider_sprite[p], false)
       endif
     endif
+  next
 
-    if clip_trails
+  ' but only SOMETIMES clip all players here
+  new_last_player_clipped = 0
+  for real_p = 1 to player_count
+    p = (((real_p - 1) + last_player_clipped) mod player_count) + 1
+    otime = GetTickCount() - last_begin
+    ' 32 ticks is our total budget for calculations - that equates to a 30 frames per second
+    ' actually, lets do 20 - that would be 48fps, BUT that leaves time for music and stuff too
+    overflow = false
+    if otime > 20
+      print "OVERFLOW: "+otime
+      overflow = true
+    endif
+    if clip_trails and (alive[p] or exploding[p]) and overflow = false
+      new_last_player_clipped = p
       ' now do the trails - we don't spritedisable those, since it would not make sense.... what we do instead,
       ' is turn DrawTo into MoveTo, and disable the lines that way.  What this _can_ mean, is we disable longer lines
       ' so we'll need to consider _both_ ends of the line we're drawing.
@@ -948,17 +965,18 @@ while game_is_playing do
       next
     endif
   next
+  last_player_clipped = new_last_player_clipped
   endif
   clip_time = GetTickCount() - ctick
-  print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
+  'print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
   ' if we dropped frames, lets reduce our clipping
   if fps_val < target_fps
-    print "reduce - fps_val = "+fps_val+" target = "+target_fps
+    'print "reduce - fps_val = "+fps_val+" target = "+target_fps
     trail_view_distance = trail_view_distance * down_multiplier
   ' if we did NOT drop frames, but we DID drop trails, then lets allow 
   ' more distance
   elseif clipped_trail_vx > 0
-    print "increase - fps_val = "+fps_val+" target = "+target_fps
+    'print "increase - fps_val = "+fps_val+" target = "+target_fps
     trail_view_distance = trail_view_distance * up_multiplier
   endif
   ' cycles are considered 50% as important as trails.  This is entirely a finger in the

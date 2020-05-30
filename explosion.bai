@@ -1,4 +1,4 @@
-DEBUG_DATA=true
+DEBUG_DATA=false
 ' this function decomposes the object from
 ' a connected set of linesprites, to a set of moveto/drawto
 ' so that we are moving around indvidual lines.
