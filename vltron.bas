@@ -167,7 +167,7 @@ arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 ' we're going to make these dynamic, eventually...
 trail_view_distance = 64.0
 cycle_view_distance = 64.0
-target_fps = 30.0
+target_fps = 20.0
 up_multiplier = 1.02
 down_multiplier = 1.0/1.02
 
@@ -696,7 +696,7 @@ while game_is_playing do
       trail_height = 2.0 * ((explosion_time - real_time) / explosion_time)
       for seg = 1 to (player_pos[p] - 1)
         player_trail3d[p][(seg-1)*4+3, 3] = trail_height
-        player_trail3d[p][(seg-1)*4+4, 4] = trail_height
+        player_trail3d[p][(seg-1)*4+4, 3] = trail_height
       next
       new_intensity = Int(Float(player_intensity[p]) * ((explosion_time - real_time) / explosion_time))
       'call SpriteIntensity(line_ispr[p], new_intensity)
