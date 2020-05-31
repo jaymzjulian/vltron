@@ -1151,7 +1151,7 @@ if demo_mode = false
   '  call aps(CodeSprite(ayc_pokedata))
   '  call aps(CodeSprite(ayc_init))
   'endif
-  dim rank_list[player_count]
+  dim rank_list[player_count+1]
   ' display our players in order...
   ' i am deeply ashamed of this code, but too lazy to write a proper sort....
   dim displayed[player_count] 
@@ -1173,6 +1173,7 @@ if demo_mode = false
     else
       rank_list[display_count][1, 3] = display_count+": PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
     endif
+    rank_list[player_count+1] = {{0, 1*player_count, "PRESS 2+3 TO CONTINUE"}
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
     call IntensitySprite(127)
@@ -1181,7 +1182,6 @@ if demo_mode = false
       call CodeSprite(ayc_playcode)
     endif
   next
-  call Text2Sprite("GAME OVER PRESS 2+3")
   'if music_enabled
   '  call CodeSprite(ayc_playcode)
   '  call CodeSprite(ayc_exit)
