@@ -1173,7 +1173,7 @@ if demo_mode = false
     else
       rank_list[display_count][1, 3] = display_count+": PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
     endif
-    rank_list[player_count+1] = {{0, 1*player_count, "PRESS 2+3 TO CONTINUE"}
+    rank_list[player_count+1] = {{0, 15*player_count, "PRESS 2+3 TO CONTINUE"}}
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
     call IntensitySprite(127)
