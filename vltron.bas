@@ -152,7 +152,6 @@ lc_object = lightcycle()
   ' set up some explosion stuff first!
 exploding = { false, false, false, false }
 ' copy our exploding data in here...
-exptime = { 0, 0, 0, 0 }
 world_scale = 1.0
 x_impulse = 2.5
 y_impulse =3.0
@@ -212,7 +211,7 @@ endif
 ' make these toggleable on the menu
 ' note that AI skill is a fixed point of *100 - so
 ' an ai skill of 200 will, on average, process in 1 frame out of every 4
-ai_skill = 200
+ai_skill = 400
 ai_max_distance = 16.0
 target_game_rate = 20
 
@@ -400,7 +399,8 @@ target_fps = 20.0
 up_multiplier = 1.02
 down_multiplier = 1.0/1.02
 
-ai_state = {9999, 8888, 9999, 9999}
+ai_state = {0, 0, 0, 0}
+exptime = { 0, 0, 0, 0 }
 
 print "--------------------------------------------"
 print "local_scale ",local_scale
@@ -462,8 +462,12 @@ intro_val = 3
 intro_scale_val = 127
 game_start_time = GetTickCount()
 last_player_clipped = 0
-last_game_tick = GetTickCount()
+' ensure the first frame has _some_ movement :)
+' this is to enable another optimization, specifically in teh AI and intersect, we decice if we're h/v via the first
+' movement - so ensure it happens!
+last_game_tick = GetTickCount() - 1
 col_time = 0
+first_frame = true
 
 while game_is_playing do
   ' 1 eor 3 = 2
@@ -733,13 +737,9 @@ while game_is_playing do
       if best_dir != player_direction[p] 
         player_direction[p] = best_dir
         require_update = 1
-        'print p+": TURN"
-        'if p ==  1
-        '  bp
-        'endif
       endif
       ai_time = ai_time + (GetTickCount()-start_ai)
-    else
+    elseif computer_only[p] == false
       my_controller = 1
       button_offset = 0
       if p = 2 and p2_controller = 2
@@ -762,7 +762,7 @@ while game_is_playing do
       endif
     endif
 
-    if require_update = 1
+    if require_update = 1 and first_frame != true
       player_pos[p] = player_pos[p] + 1
       player_x[p, player_pos[p]] = player_x[p, player_pos[p] - move_speed] 
       player_y[p, player_pos[p]] = player_y[p, player_pos[p] - move_speed] 
@@ -886,6 +886,8 @@ while game_is_playing do
       game_started = true
       call drawscreen
     endif
+  else
+    first_frame = false
   endif
 
   if first_person
@@ -1208,6 +1210,7 @@ function intersect_collision(p)
   else
     horiz = false
   endif
+  print "col: "+p
   for opp = 1 to player_count
     ' the ubound CAN cause a glitch - we need to eliminate it...
     if alive[opp] 
@@ -1244,7 +1247,9 @@ function intersect_collision(p)
             '
             ' we pout this inside all of the loops, since it's the most complex part...
             ' optimize: y1 always == y2
-            if max(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) >= y1 and min(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) <= y1
+            if max(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) < y1 or min(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) > y1
+              ' nothing
+            else
               'print "HIntersect: "+x1+","+y1+"-"+x2+","+y2+" crossed at "+player_trail[opp][l, 2]+","+player_trail[opp][l+1, 2]+"-"+player_trail[opp][l+1, 3]+","+player_trail[opp][l+1, 3]
               return true
             endif
@@ -1253,9 +1258,12 @@ function intersect_collision(p)
       else
         for l = my_base to (player_pos[opp] - 1) step 2
           ycross = player_trail[opp][l, 3]
+          print ycross
           if (y1 < ycross and y2 > ycross) or (y1 > ycross and y2 < ycross)
             ' optimize: x1 always == x2
-            if max(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) >= x1 and min(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) <= x1
+            if max(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) < x1 or min(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) > x1
+              ' nothing
+            else
               'print "VIntersect: "+x1+","+y1+"-"+x2+","+y2+" crossed at "+player_trail[opp][l, 2]+","+player_trail[opp][l+1, 2]+"-"+player_trail[opp][l+1, 3]+","+player_trail[opp][l+1, 3]
               return true
             endif
