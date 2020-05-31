@@ -113,16 +113,16 @@ menu_data = { _
 menu_status = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
 options_sprite = { _
-  { -100, 0,    "-> START" }, _
-  { -100, -15,  "   ONE PLAYER" }, _
-  { -100, -30,  "   LEVEL 1" }, _
-  { -100, -45,  "   THIRD PERSON" }, _
-  { -100, -60,  "   LARGE ARENA" }, _
-  { -100, -75,  "   NO DRIVERS" }, _
-  { -100, -90, "   CREDITS" }, _
-  { -100, -105, "   NO STATUS" }, _
-  { -100, -120, "   ETC" }, _
-  { -100, -135, "   GIT MASTER" } _
+  { -100, 15,    "-> START" }, _
+  { -100, 0,  "   ONE PLAYER" }, _
+  { -100, -15,  "   LEVEL 1" }, _
+  { -100, -30,  "   THIRD PERSON" }, _
+  { -100, -45,  "   LARGE ARENA" }, _
+  { -100, -60,  "   NO DRIVERS" }, _
+  { -100, -75, "   CREDITS" }, _
+  { -100, -90, "   NO STATUS" }, _
+  { -100, -105, "   ETC" }, _
+  { -100, -120, "   GIT MASTER" } _
 }
 credits_sprite = { _
   { -100, 90, "VLTRON GIT MASTER" }, _
@@ -1848,9 +1848,9 @@ sub menu_activate(j, on_exit)
     call do_credits()
   endif
   ' AI levels are level * 200 - that should give a "reasonable" challenge.... but have level 1 be super easy
-  for j = 1 to 5
-    if menu_data[k][menu_status[k]] == "LEVEL "+j
-      ai_skill = (5-j)*100
+  for level = 1 to 5
+    if menu_data[j][menu_status[j]] == "LEVEL "+level
+      ai_skill = (6-level)*100
     endif
   next
   if menu_data[j][menu_status[j]] = "ONE PLAYER"
