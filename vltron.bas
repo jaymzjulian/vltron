@@ -19,8 +19,8 @@ endif
 mem
 
 ' globals for gameplay :)
-music_enabled = true
-title_enabled = true
+music_enabled = false
+title_enabled = false
 debug_status = false
 
 
@@ -649,7 +649,7 @@ while game_is_playing do
       endif
   
     ' process collisions
-    if collision(player_x[p, player_pos[p]], player_y[p, player_pos[p]]) = true
+    if intersect_collision(p) = true
       alive[p] = false
       exploding[p] = true
     else
@@ -977,7 +977,7 @@ while game_is_playing do
   last_player_clipped = new_last_player_clipped
   endif
   clip_time = GetTickCount() - ctick
-  print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
+  'print "Clip_time: "+clip_time+" viewable: "+total_trail_vx+" clipped:" + clipped_trail_vx+" dist: "+trail_view_distance
   ' if we dropped frames, lets reduce our clipping
   if fps_val < target_fps
     'print "reduce - fps_val = "+fps_val+" target = "+target_fps
@@ -996,14 +996,14 @@ endwhile
 print "OUT OF GAME"
 
 if demo_mode = false
-  call ClearScreen()
-  call ReturnToOriginSprite()
-  call IntensitySprite(127)
-  call SetFrameRate(vx_frame_rate)
-  if music_enabled
-    call aps(CodeSprite(ayc_pokedata))
-    call aps(CodeSprite(ayc_init))
-  endif
+  'call ClearScreen()
+  'call ReturnToOriginSprite()
+  'call IntensitySprite(127)
+  'call SetFrameRate(vx_frame_rate)
+  'if music_enabled
+  '  call aps(CodeSprite(ayc_pokedata))
+  '  call aps(CodeSprite(ayc_init))
+  'endif
   dim rank_list[player_count]
   ' display our players in order...
   ' i am deeply ashamed of this code, but too lazy to write a proper sort....
@@ -1028,16 +1028,17 @@ if demo_mode = false
     endif
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
+    call IntensitySprite(127)
     call TextListSprite(rank_list[display_count])
     if music_enabled
       call CodeSprite(ayc_playcode)
     endif
   next
   call TextSprite("GAME OVER PRESS 2+3")
-  if music_enabled
-    call CodeSprite(ayc_playcode)
-    call CodeSprite(ayc_exit)
-  endif
+  'if music_enabled
+  '  call CodeSprite(ayc_playcode)
+  '  call CodeSprite(ayc_exit)
+  'endif
   done_waiting = false
   while done_waiting = false
     ' this is a hack for now until sprite management gets better
@@ -1053,6 +1054,68 @@ if demo_mode = false
 endif
 
 endwhile
+
+function intersect_collision(p)
+  now = GetTickCount()
+  ' we're going to intersect the lines2d as quickly as we can....
+  x1 = player_trail[p][player_pos[p]-1, 2]
+  y1 = player_trail[p][player_pos[p]-1, 3]
+  x2 = player_trail[p][player_pos[p], 2]
+  y2 = player_trail[p][player_pos[p], 3]
+  if y1 = y2
+    horiz = true
+  else
+    horiz = false
+  endif
+  for opp = 1 to player_count
+    ' only test against alive players who are not us ;)
+    if alive[opp] and opp != p
+      ' iterate through the players lines
+      for l = 1 to (player_pos[opp] - 1)
+        ' FIXME: we can optimize this somehow by caching the origins.... but premature
+        ' optimization sucks, so lets see ifw e need the win first
+        '
+        ' also, we know they're always a h/v/h/v pattern due to 90 degree turns, so..... that could
+        ' be an optimization too!
+
+        ' our lines are always at 90 degree angles, so we don't need a "real" intersect here -
+        ' huzzah!  Instead, what we're checking for, is that if we're traversing
+        ' the cross beam - so for the horizontal case, if x1 and x2 (which are the ones that
+        ' differ - y1 and y2 are the same for a horizontal line!) are on different sides 
+        ' of the vertical line (whose x1 and x2 are the same), whos y changes but not x, then we've intersected
+        '
+        ' Of course, we need to check that we're seperatly within the range of the other dimesion, which I did NOT do originally :)
+        if horiz and (player_trail[opp][l, 2] == player_trail[opp][l+1, 2])
+          xcross = player_trail[opp][l, 2]
+          if (x1 < xcross and x2 > xcross) or (x1 > xcross and x2 < xcross)
+            ' if the max of line seg a is less than the min of b, _or_ the min of seg a is more than the max of seg b, still no intersect!
+            ' otherwise, they DO intersect
+            '
+            ' we pout this inside all of the loops, since it's the most complex part...
+            if max(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) < min(y1, y2) or min(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) > max(y1, y2)
+              ' no intersect
+            else
+              'print "HIntersect: "+x1+","+y1+"-"+x2+","+y2+" crossed at "+player_trail[opp][l, 2]+","+player_trail[opp][l+1, 2]+"-"+player_trail[opp][l+1, 3]+","+player_trail[opp][l+1, 3]
+              return true
+            endif
+          endif
+        elseif (horiz == false) and (player_trail[opp][l, 3] == player_trail[opp][l+1, 3])
+          ycross = player_trail[opp][l, 3]
+          if (y1 < ycross and y2 > ycross) or (y1 > ycross and y2 < ycross)
+            if max(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) < min(x1, x2) or min(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) > max(x1, x2)
+              ' no intersect
+            else
+              'print "VIntersect: "+x1+","+y1+"-"+x2+","+y2+" crossed at "+player_trail[opp][l, 2]+","+player_trail[opp][l+1, 2]+"-"+player_trail[opp][l+1, 3]+","+player_trail[opp][l+1, 3]
+              return true
+            endif
+          endif
+        endif
+      next
+    endif
+  next
+  print "Intersect took "+(GetTickCount()-now)+" ticks for worst case"
+  return false
+endfunction
 
 function collision(x, y)
     if x = 0 or y = 0 or x = arena_size_x or y = arena_size_y
