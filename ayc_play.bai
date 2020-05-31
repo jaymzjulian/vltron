@@ -45,7 +45,6 @@ if buffer_mode = 1
   ' but is.... probably enough?
   dualport_return = 1
   dualport_status = 2
-  dualport_flag = 3
   ayc_buffer_overflow = false
   '--------------------------------------------------------------------'
   ' This is only required if buffer_mode is set to 1 - you can save a few byres of ram by excluding it if you want, otherwise
@@ -64,12 +63,6 @@ if buffer_mode = 1
   buffer_base = $c884
   ' buffers are 14*2 + 1 bytes long
   buffer_end = buffer_base + (buffer_count - 1) * 29
-  ' add an extra buffer_end for this, because of that way it's calculated...
-  if irq_mode = 1
-    flag_loc = buffer_end + 29
-  else
-    flag_loc = dualport_flag
-  endif
   ayc_ticked = 0
   player_code_loc = buffer_end + 31
   player_jmp = player_code_loc + 10

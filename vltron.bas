@@ -19,6 +19,8 @@ endif
 
 mem
 
+textsize = {40, 5}
+
 ' globals for gameplay :)
 music_enabled = true
 title_enabled = true
@@ -520,8 +522,6 @@ while game_is_playing do
       status_display[3,3] = "LAST REDRAW: "+rdt
       status_display[4,3] = "AI: "+ai_time
       status_display[5,3] = "CLIP: "+clip_time
-      status_display[6,3] = "AYC: "+ayc_tick
-      status_display[6,3] = "PASS: "+passes
     else
       status_display[1,3] = "FPS: "+Int(fps_val)
     endif
@@ -1362,6 +1362,7 @@ sub drawscreen
   ' to defuce typing...
   '
   call ClearScreen
+  call TextSizeSprite(textsize)
   call SetFrameRate(vx_frame_rate)
 
   total_objects = 0
@@ -1707,6 +1708,7 @@ endfunction
 ' -------------------------------------------------------------------------
 sub title_picture()
   call clearscreen()
+  call TextSizeSprite(textsize)
   if music_enabled
     call CodeSprite(ayc_init)
   endif
@@ -1850,7 +1852,7 @@ sub menu_activate(j, on_exit)
   ' AI levels are level * 200 - that should give a "reasonable" challenge.... but have level 1 be super easy
   for level = 1 to 5
     if menu_data[j][menu_status[j]] == "LEVEL "+level
-      ai_skill = (6-level)*150
+      ai_skill = (6-level)*100
     endif
   next
   if menu_data[j][menu_status[j]] = "ONE PLAYER"
