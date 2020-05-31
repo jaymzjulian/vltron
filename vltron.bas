@@ -1849,7 +1849,7 @@ sub menu_activate(j, on_exit)
   endif
   ' AI levels are level * 200 - that should give a "reasonable" challenge.... but have level 1 be super easy
   for j = 1 to 5
-    if menu_data[k][menu_status[k] == "LEVEL "+j
+    if menu_data[k][menu_status[k]] == "LEVEL "+j
       ai_skill = (5-j)*100
     endif
   endif
