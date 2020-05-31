@@ -1056,6 +1056,10 @@ endif
 endwhile
 
 function intersect_collision(p)
+  ' check the arena first ;)
+  if player_x[p, player_pos[p]] <= 0 or player_y[p, player_pos[p]] <= 0 or player_x[p, player_pos[p]] >= arena_size_x or player_x[p, player_pos[p]] >= arena_size_y
+    return true
+  endif
   now = GetTickCount()
   ' we're going to intersect the lines2d as quickly as we can....
   x1 = player_trail[p][player_pos[p]-1, 2]
@@ -1113,7 +1117,7 @@ function intersect_collision(p)
       next
     endif
   next
-  print "Intersect took "+(GetTickCount()-now)+" ticks for worst case"
+  'print "Intersect took "+(GetTickCount()-now)+" ticks for worst case"
   return false
 endfunction
 
