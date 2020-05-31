@@ -7,17 +7,6 @@ AYC_MAX=10000
 ' TODO: possibly refactor this to be a struct of an ayc_data type, so it can be passed
 ' instead of global
 '---------------------------
-'
-' if this is 1, we call Sound, if this is 0, we call FillBuffer, and
-' play via the codesprite
-buffer_mode = 1
-
-' should we use IRQ based timing, or Poke based timing?
-irq_mode = 0
-
-' do we wait for the next frame to be "due" before we continue?
-buffer_mode_preserve_refresh = 0
-
 dim comp_buffer[14]
 dim cursor[14]
 ' our data file
@@ -63,6 +52,12 @@ if buffer_mode = 1
   buffer_base = $c884
   ' buffers are 14*2 + 1 bytes long
   buffer_end = buffer_base + (buffer_count - 1) * 29
+  ' add an extra buffer_end for this, because of that way it's calculated...
+  if irq_mode = 1
+    flag_loc = buffer_end + 29
+  else
+    flag_loc = dualport_flag
+  endif
   ayc_ticked = 0
   player_code_loc = buffer_end + 31
   player_jmp = player_code_loc + 10
@@ -104,6 +99,7 @@ if buffer_mode = 1
   '
   ' we acutally shove the main playcode into vectrex ram to try and save ourselves some dpram....
   ' see the .lst file for disas
+  flag_loc = buffer_end + 29
   ayc_playcode = { $bd, player_jmp / 256, player_jmp mod 256 }
   internal_ayc_playcode = { _
      $cc, via_rate mod 256, via_rate / 256, $fd, $d0, $08, _ 
@@ -281,7 +277,7 @@ sub update_music_vbi
       wait_time = 65535
     endif
     
-    print "AYC: (last: "+ayc_played_this_frame+") music target is "+music_target+" for tick "+current_tick, " vs " + played_to + " wait_time: "+wait_time
+    'print "AYC: (last: "+ayc_played_this_frame+") music target is "+music_target+" for tick "+current_tick, " vs " + played_to + " wait_time: "+wait_time
 
     ' shove that wait_time in the codesptie for the VIA, so we wait for that
     ayc_init[19] = wait_time mod 256

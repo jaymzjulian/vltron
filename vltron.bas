@@ -7,7 +7,7 @@ debug_movement = false
 
 if version() < 124
   call MoveSprite(-40, 0)
-  call TextSprite("VXTRON REQUIRES FIRMWARE 1.24")
+  call Text2Sprite("VXTRON REQUIRES FIRMWARE 1.24")
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickX + JoystickY)
   last_controls = controls
   while controls[1,3] = 0
@@ -584,7 +584,7 @@ while game_is_playing do
   ' process!
   for p = 1 to player_count
     if music_enabled
-      call ayc_update_timer()
+      'call ayc_update_timer()
     endif
     if game_started and alive[p]
 
@@ -824,7 +824,7 @@ while game_is_playing do
   next
 
   if music_enabled
-    call ayc_update_timer()
+    'call ayc_update_timer()
   endif
   
   last_controls = controls
@@ -1058,7 +1058,7 @@ while game_is_playing do
   ' always clip all players...
   for p = 1 to player_count
     if music_enabled
-      call ayc_update_timer()
+      'call ayc_update_timer()
     endif
     ' this should be really just taken from the thing - need to switch to live data....
     player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, player_y[p, player_pos[p]] - arena_size_y/2}
@@ -1078,7 +1078,7 @@ while game_is_playing do
   new_last_player_clipped = 0
   for real_p = 1 to player_count
     if music_enabled
-      call ayc_update_timer()
+      'call ayc_update_timer()
     endif
     p = (((real_p - 1) + last_player_clipped) mod player_count) + 1
     otime = GetTickCount() - last_begin
@@ -1176,12 +1176,12 @@ if demo_mode = false
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
     call IntensitySprite(127)
-    call TextListSprite(rank_list[display_count])
+    call Text2ListSprite(rank_list[display_count])
     if music_enabled
       call CodeSprite(ayc_playcode)
     endif
   next
-  call TextSprite("GAME OVER PRESS 2+3")
+  call Text2Sprite("GAME OVER PRESS 2+3")
   'if music_enabled
   '  call CodeSprite(ayc_playcode)
   '  call CodeSprite(ayc_exit)
@@ -1380,7 +1380,7 @@ sub drawscreen
   ' status display
   if status_enabled
     call aps_rto()
-    call aps(TextListSprite(status_display))
+    call aps(Text2ListSprite(status_display))
   endif
   
 
@@ -1745,7 +1745,7 @@ sub do_credits()
     call IntensitySprite(127)
     for j = 1 to (Ubound(credits_sprite)-1) step 2
       ' why this?  music!
-      call TextListSprite({ _
+      call Text2ListSprite({ _
           {credits_sprite[j,1], credits_sprite[j,2], credits_sprite[j,3]}, _
           {credits_sprite[j+1,1], credits_sprite[j+1,2], credits_sprite[j+1,3]} _
           })
@@ -1782,7 +1782,7 @@ sub do_menu()
     call IntensitySprite(127)
     for j = 1 to Ubound(options_sprite)
       ' why this?  music!
-      call TextListSprite({{options_sprite[j,1], options_sprite[j,2], options_sprite[j,3]}})
+      call Text2ListSprite({{options_sprite[j,1], options_sprite[j,2], options_sprite[j,3]}})
       if music_enabled
         call CodeSprite(ayc_playcode)
       endif
