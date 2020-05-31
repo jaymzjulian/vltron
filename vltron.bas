@@ -73,6 +73,14 @@ arena_options = { _
   "SMALL ARENA" _
 }
 
+ai_challenge = { _
+  "LEVEL 1", _
+  "LEVEL 2", _
+  "LEVEL 3", _
+  "LEVEL 4", _
+  "LEVEL 5" _
+}
+
 driver_options = { _
   "NO RIDERS", _
   "HUMANS", _
@@ -92,6 +100,7 @@ release_info={"GIT MASTER"}
 menu_data = { _
   start_text, _
   control_options, _
+  ai_challenge, _
   cycle_options, _
   view_options, _
   arena_options, _
@@ -106,13 +115,14 @@ menu_status = { 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 options_sprite = { _
   { -100, 0,    "-> START" }, _
   { -100, -15,  "   ONE PLAYER" }, _
-  { -100, -30,  "   THIRD PERSON" }, _
-  { -100, -45,  "   LARGE ARENA" }, _
-  { -100, -60,  "   NO DRIVERS" }, _
-  { -100, -75, "   CREDITS" }, _
-  { -100, -90, "   NO STATUS" }, _
-  { -100, -105, "   ETC" }, _
-  { -100, -120, "   GIT MASTER" } _
+  { -100, -30,  "   LEVEL 1" }, _
+  { -100, -45,  "   THIRD PERSON" }, _
+  { -100, -60,  "   LARGE ARENA" }, _
+  { -100, -75,  "   NO DRIVERS" }, _
+  { -100, -90, "   CREDITS" }, _
+  { -100, -105, "   NO STATUS" }, _
+  { -100, -120, "   ETC" }, _
+  { -100, -135, "   GIT MASTER" } _
 }
 credits_sprite = { _
   { -100, 90, "VLTRON GIT MASTER" }, _
@@ -1836,6 +1846,12 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "CREDITS" and on_exit = false
     call do_credits()
+  endif
+  ' AI levels are level * 200 - that should give a "reasonable" challenge.... but have level 1 be super easy
+  for j = 1 to 5
+    if menu_data[k][menu_status[k] == "LEVEL "+j
+      ai_skill = (5-j)*100
+    endif
   endif
   if menu_data[j][menu_status[j]] = "ONE PLAYER"
     computer_only = { false, true, true, true }
