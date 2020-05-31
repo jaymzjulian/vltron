@@ -1850,7 +1850,7 @@ sub menu_activate(j, on_exit)
   ' AI levels are level * 200 - that should give a "reasonable" challenge.... but have level 1 be super easy
   for level = 1 to 5
     if menu_data[j][menu_status[j]] == "LEVEL "+level
-      ai_skill = (6-level)*100
+      ai_skill = (6-level)*150
     endif
   next
   if menu_data[j][menu_status[j]] = "ONE PLAYER"
