@@ -1,5 +1,5 @@
 include "ayc_settings.bai"
-AYC_MAX=14000
+AYC_MAX=10000
 
 '---------------------------
 ' GLOBALS - these must be global 
@@ -403,7 +403,6 @@ sub load_and_init(filename)
   while ftell(fh) != (ay_buffer_offsets[1]+header_offset)
     call fgetc(fh)
   endwhile
-  print "Reached ftell/fgetc "+ftell(fh)
 
   ' read the remainign bytes into the file - we otherwise have buffer pointers...
   i = ftell(fh)
@@ -567,6 +566,11 @@ sub play_that_music
        endwhile
     endif
   endif
+
+  if sfx_enabled
+    outregs = sfx_overlay(outregs)
+  endif
+
   'print outregs
   if buffer_mode = 0
     call Sound(outregs)
