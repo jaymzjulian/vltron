@@ -2,6 +2,7 @@
 ' VxTron32 (c) 2020, Jaymz Julian
 ' For the vectrex32 platform
 '
+debug_movement = false
 
 
 if version() < 124
@@ -19,9 +20,14 @@ endif
 mem
 
 ' globals for gameplay :)
-music_enabled = false
-title_enabled = false
+music_enabled = true
+title_enabled = true
 debug_status = false
+' you can't acutally do this ;)
+'if music_enabled
+'  include "ayc_play.bai"
+'endif
+include "ayc_play.bai"
 
 
 release_mode = true
@@ -127,7 +133,7 @@ in_menu = true
 demo_mode = false
 max_demo_frames = 450
 
-include "ayc_play.bai"
+
 print "Passed BAI"
 include "explosion.bai"
 
@@ -171,7 +177,6 @@ rider_is_duck = false
 local_scale = 64.0 / vx_scale_factor
 cycle_local_scale = 64.0 /cycle_vx_scale_factor
 vx_frame_rate = 400
-target_game_rate = 20
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
@@ -179,7 +184,6 @@ arena_size_x = 128
 arena_size_y = 128
 ' map_scale is based on a 128x128 arena
 map_scale = ((arena_size_x/96.0) * local_scale)
-arena = ByteArray((arena_size_y+1)*(arena_size_x+1))
 
 
 ' clip_trails seems to take more ticks than it saves in FPS - so it's off for now.
@@ -204,6 +208,14 @@ status_enabled = true
 if music_enabled
   call load_and_init("vxtron.ayc")
 endif
+
+' make these toggleable on the menu
+' note that AI skill is a fixed point of *100 - so
+' an ai skill of 200 will, on average, process in 1 frame out of every 4
+ai_skill = 200
+ai_max_distance = 16.0
+target_game_rate = 20
+
 
 max_player_count = 4
 player_count = 4
@@ -285,13 +297,6 @@ camera_step = 2
 dim all_sprites[256]
 dim all_origins[256]
 total_objects = 0
-
-for y = 1 to arena_size_y
-  for x = 1 to arena_size_x
-    arena[y*arena_size_x + x] = 0
-  next
-next
-
 
 start_distance = 16
 map_x = 64 * local_scale
@@ -395,6 +400,8 @@ target_fps = 20.0
 up_multiplier = 1.02
 down_multiplier = 1.0/1.02
 
+ai_state = {9999, 8888, 9999, 9999}
+
 print "--------------------------------------------"
 print "local_scale ",local_scale
 print "vx_scale_factor ",vx_scale_factor
@@ -455,6 +462,8 @@ intro_val = 3
 intro_scale_val = 127
 game_start_time = GetTickCount()
 last_player_clipped = 0
+last_game_tick = GetTickCount()
+col_time = 0
 
 while game_is_playing do
   ' 1 eor 3 = 2
@@ -477,6 +486,9 @@ while game_is_playing do
       cycle_clippingRect[2,2] = 0
     endif
   endif
+
+  'print "ai_time:"+ai_time
+  'print "col_time:"+col_time
 
   ' show FPS before we get too far 
   ' this is at 960 hz - so we divide by 960 to get GPS
@@ -546,55 +558,185 @@ while game_is_playing do
 
   ' actual game logic is here :)
   ' are we due for another frame?
-  target_frames = ((GetTickCount() - game_start_time) * target_game_rate) / 960.0
-  'print "Target: ",target_frames, " Played: ", frames_played
+  move_scale = float(GetTickCount() - last_game_tick) / float(960.0 / target_game_rate)
+  if debug_movement
+    move_scale = 1.0
+  endif
+  last_game_tick = GetTickCount()
 
   ai_time = 0
-  ' FIXME: support partial frames - which is to say, do fractional increments of position, at least for the 3d
-  ' part
-  run_count = 0
-  while target_frames > frames_played
+  done_ai = false
+  col_time = 0
   ' process!
-  frames_played = frames_played + 1
   for p = 1 to player_count
     if music_enabled
       call ayc_update_timer()
     endif
     if game_started and alive[p]
 
+    ai_state[p] = ai_state[p] + rand() mod 100
+
     require_update = 0
-    if computer_only[p] and run_count = 0
+    ' only allow one AI per frame, to save cycles!
+    if computer_only[p] and ai_state[p] > ai_skill and done_ai == false
+      ' reset the ai state
+      ai_state[p] = 0
+      done_ai = true
       start_ai = GetTickCount()
+      ' decide if we're going to make a decision
       ' of our three angles, find which one will kill us the least quickly
       directions_to_test = { player_direction[p], (player_direction[p]+1) mod 4, (player_direction[p]+3) mod 4} 
 
-      'if (rand() mod 8 = 1)
-      if (rand() mod 4 = 1)
-        best_dir = player_direction[p]
-        best_len = 0
+      current_x = player_x[p, player_pos[p]]
+      current_y = player_y[p, player_pos[p]]
+      prev_x = player_x[p, player_pos[p]-1]
+      prev_y = player_y[p, player_pos[p]-1]
+      best_dir = player_direction[p]
+      best_d = 0
+      current_d = player_direction[p]
+      for c = 1 to 3
+        ' this is going to take real wall clock time, so we shouldn't do it for 
+        ' every player every frame - instead, we'll cycle them..... maybe.
+        '
+        ' we're going to start with creating a perfect player, though, and escalate
+        ' from there
+        d = directions_to_test[c] + 1
+        if y_move[d] == 0
+          horiz = true
+        else
+          horiz = false
+        endif
 
-        for c = 1 to 3
-          'print "c=",c," dtt=",directions_to_test[c]+1,x_move[1]
-          current_x = player_x[p, player_pos[p]] + x_move[directions_to_test[c]+1]
-          current_y = player_y[p, player_pos[p]] + y_move[directions_to_test[c]+1]
-          cdist = 0
-          mdist = 0
-          while collision(current_x, current_y) = false and cdist < 16
-            current_x = current_x + x_move[directions_to_test[c]+1]
-            current_y = current_y + y_move[directions_to_test[c]+1]
-            cdist = cdist + 1
-          endwhile
+        ' get our distance from the arena walls
+        if x_move[d] == -1
+          arena_dist = current_x
+        elseif x_move[d] == 1
+          arena_dist = arena_size_x - current_x
+        elseif y_move[d] == -1
+          arena_dist = current_y
+        elseif y_move[d] == 1
+          arena_dist = arena_size_y - current_y
+        endif
+        if current_d == directions_to_test[c]
+          arena_dist = arena_dist * 2
+        endif
 
-          if best_len < cdist
-            best_dir = directions_to_test[c]
-            best_len = cdist
+        ' we're getting the closest trail match - so we start with the arena, and then optimize _down_ from there
+        ' in the current direction
+        '
+        ' we give a bias to the current direction - i.e. avoid turns unless we have a reason...
+        closest_trail_dist = arena_dist
+        'print p+": arena: "+closest_trail_dist
+   
+        for opp = 1 to player_count
+          if alive[opp] 
+
+            ' avoid oncoming cycles
+            if opp != p
+              ' if horiz is true, then x is changing
+              if abs(player_y[opp, player_pos[opp]]-current_y) < 1.0 and horiz == true
+                cdist = (player_x[opp, player_pos[opp]]-current_x)
+                if current_d == directions_to_test[c]
+                  cdist = cdist * 2
+                endif
+                if abs(cdist) < closest_trail_dist and sgn(cdist) == x_move[d]
+                  closest_trail_dist = abs(cdist)
+                  'print p+": CYCLE "+opp+" for "+c+" @ "+cdist
+                endif
+              ' if horiz is false, then y is changing
+              elseif abs(player_x[opp, player_pos[opp]]-current_x) < 1.0 and horiz == false
+                cdist = (player_y[opp, player_pos[opp]]-current_y)
+                if current_d == directions_to_test[c]
+                  cdist = cdist * 2
+                endif
+                if abs(cdist) < closest_trail_dist
+                  closest_trail_dist = abs(cdist) and sgn(cdist) == y_move[d]
+                  'print p+": CYCLE "+opp+" for "+c+" @ "+cdist
+                endif
+              endif
+            endif
+      
+            ' also, we know they're always a h/v/h/v pattern due to 90 degree turns, so lets only ever
+            ' consider segments that will always match!
+            if horiz and player_y[opp, 1] != player_y[opp, 2]
+              my_base = 1
+            elseif Ubound(player_trail[opp]) > 2 and horiz and player_y[opp, 2] != player_y[opp, 3]
+              my_base = 2
+            elseif (horiz == false) and player_x[opp, 1] != player_x[opp, 2]
+              my_base = 1
+            elseif Ubound(player_trail[opp]) > 2 and (horiz == false) and player_x[opp, 2] != player_x[opp, 3]
+              my_base = 2
+            else
+              ' break out of the loop
+              my_base = -1
+            endif
+
+            ' now check the players trail
+            ende = player_pos[opp] - 1
+            if my_base != -1
+              ' if we're moving horizontally (i.e. our X is moving), then we hit crossbars which
+              ' have only Y moving
+            if horiz
+              for j = my_base to ende step 2
+                ' perpendicular - we are horizontal, they are vertical
+                ' are they behind us?  if so, no need to care
+                cdist = player_x[opp, j] - current_x
+                s = sgn(cdist)
+                if s == x_move[d]
+                  ' would we collide with them if we extended our line out to them?
+                  if max(player_y[opp, j], player_y[opp, j+1]) >= current_y and min(player_y[opp, j], player_y[opp, j+1]) <= current_y
+                    ' okay, it's in front of us - lets abs() the distance
+                    cdist = abs(cdist)
+                    if current_d == directions_to_test[c]
+                      cdist = cdist * 2
+                    endif
+                    if cdist < closest_trail_dist
+                      closest_trail_dist = cdist
+                      'print p+": improve to "+cdist+" from "+closest_trail_dist+" for "+c+" due to h-intersect"
+                    endif
+                  endif
+                endif
+              next
+            else
+              for j = my_base to ende step 2
+                ' perpendicular - we are vertical, they are horizontal
+                cdist = player_y[opp, j] - current_y
+                s = sgn(cdist)
+                if s == y_move[d]
+                  ' would we collide with them if we extended our line out to them?
+                  if max(player_x[opp, j], player_x[opp, j+1]) >= current_x and min(player_x[opp, j], player_x[opp, j+1]) <= current_x
+                    ' okay, it's in front of us - lets abs() the distance
+                    cdist = abs(cdist)
+                    if current_d == directions_to_test[c]
+                      cdist = cdist * 2
+                    endif
+                    if cdist < closest_trail_dist
+                      'print p+": improve to "+cdist+" from "+closest_trail_dist+" for "+c+" due to v-intersect"
+                      closest_trail_dist = cdist
+                    endif
+                  endif
+                endif
+              next
+            endif
+          endif
           endif
         next
-        'print "---------------------------------------"
-        if best_dir != player_direction[p] 
-          player_direction[p] = best_dir
-          require_update = 1
+        ' okay, we've fully raycast in this direction - now see if it's got a longer distance
+        ' viewable than our best...
+        'print "d: "+closest_trail_dist+" c: "+c
+        if closest_trail_dist > best_d
+          'print p+": IMPROVE: "+closest_trail_dist+" from "+best_d+" for "+c
+          best_d = closest_trail_dist 
+          best_dir = directions_to_test[c]
         endif
+      next
+      if best_dir != player_direction[p] 
+        player_direction[p] = best_dir
+        require_update = 1
+        'print p+": TURN"
+        'if p ==  1
+        '  bp
+        'endif
       endif
       ai_time = ai_time + (GetTickCount()-start_ai)
     else
@@ -631,8 +773,8 @@ while game_is_playing do
     endif
 
     ' move the cycles
-    player_x[p, player_pos[p]] = player_x[p, player_pos[p]] + x_move[player_direction[p]+1]
-    player_y[p, player_pos[p]] = player_y[p, player_pos[p]] + y_move[player_direction[p]+1]
+    player_x[p, player_pos[p]] = player_x[p, player_pos[p]] + (x_move[player_direction[p]+1] * move_scale)
+    player_y[p, player_pos[p]] = player_y[p, player_pos[p]] + (y_move[player_direction[p]+1] * move_scale)
 
       ' update the 2d trail
 
@@ -649,12 +791,12 @@ while game_is_playing do
       endif
   
     ' process collisions
+    now = GetTickCount()
     if intersect_collision(p) = true
       alive[p] = false
       exploding[p] = true
-    else
-      arena[player_y[p, player_pos[p]] * arena_size_x  + player_x[p, player_pos[p]]] = p
     endif
+    col_time = col_time + (GetTickCount() - now)
     endif
     if first_person = false or p != split_player
       call SpriteTranslate(cycle_sprite[p], {player_x[p, player_pos[p]] - arena_size_x/2, 1, player_y[p, player_pos[p]] - arena_size_y/2})
@@ -671,18 +813,11 @@ while game_is_playing do
     endif
   next
 
-  ' end the frame loop _before_ we redraw the screen, since that is expensive - though we should keep track 
-  ' of how many loops we did and modify camera based on that!
-  run_count = run_count + 1
-  endwhile
-
   if music_enabled
     call ayc_update_timer()
   endif
   
-  if run_count > 0
-    last_controls = controls
-  endif
+  last_controls = controls
   
   for p = 1 to player_count
     if exploding[p] = true
@@ -1057,9 +1192,11 @@ endwhile
 
 function intersect_collision(p)
   ' check the arena first ;)
-  if player_x[p, player_pos[p]] <= 0 or player_y[p, player_pos[p]] <= 0 or player_x[p, player_pos[p]] >= arena_size_x or player_x[p, player_pos[p]] >= arena_size_y
+  if (player_x[p, player_pos[p]] <= 0) or (player_y[p, player_pos[p]] <= 0) or (player_x[p, player_pos[p]] >= arena_size_x) or (player_y[p, player_pos[p]] >= arena_size_y)
     return true
   endif
+  ' FIXME: check if we hit an actual cycle....
+
   now = GetTickCount()
   ' we're going to intersect the lines2d as quickly as we can....
   x1 = player_trail[p][player_pos[p]-1, 2]
@@ -1072,66 +1209,64 @@ function intersect_collision(p)
     horiz = false
   endif
   for opp = 1 to player_count
-    ' only test against alive players who are not us ;)
-    if alive[opp] and opp != p
+    ' the ubound CAN cause a glitch - we need to eliminate it...
+    if alive[opp] 
+      ' also, we know they're always a h/v/h/v pattern due to 90 degree turns, so lets only ever
+      ' consider segments that will always match!
+      if horiz and (player_trail[opp][1, 2] == player_trail[opp][2, 2])
+        my_base = 1
+      elseif Ubound(player_trail[opp]) > 2 and horiz and (player_trail[opp][2, 2] == player_trail[opp][3, 2])
+        my_base = 2
+      elseif (horiz == false) and (player_trail[opp][1, 3] == player_trail[opp][2, 3])
+        my_base = 1
+      elseif Ubound(player_trail[opp]) > 2 and (horiz == false) and (player_trail[opp][2, 3] == player_trail[opp][3, 3])
+        my_base = 2
+      else
+        ' break out of the loop
+        my_base = -1
+      endif
+      if my_base != -1
       ' iterate through the players lines
-      for l = 1 to (player_pos[opp] - 1)
-        ' FIXME: we can optimize this somehow by caching the origins.... but premature
-        ' optimization sucks, so lets see ifw e need the win first
-        '
-        ' also, we know they're always a h/v/h/v pattern due to 90 degree turns, so..... that could
-        ' be an optimization too!
-
-        ' our lines are always at 90 degree angles, so we don't need a "real" intersect here -
-        ' huzzah!  Instead, what we're checking for, is that if we're traversing
-        ' the cross beam - so for the horizontal case, if x1 and x2 (which are the ones that
-        ' differ - y1 and y2 are the same for a horizontal line!) are on different sides 
-        ' of the vertical line (whose x1 and x2 are the same), whos y changes but not x, then we've intersected
-        '
-        ' Of course, we need to check that we're seperatly within the range of the other dimesion, which I did NOT do originally :)
-        if horiz and (player_trail[opp][l, 2] == player_trail[opp][l+1, 2])
+      ' our lines are always at 90 degree angles, so we don't need a "real" intersect here -
+      ' huzzah!  Instead, what we're checking for, is that if we're traversing
+      ' the cross beam - so for the horizontal case, if x1 and x2 (which are the ones that
+      ' differ - y1 and y2 are the same for a horizontal line!) are on different sides 
+      ' of the vertical line (whose x1 and x2 are the same), whos y changes but not x, then we've intersected
+      '
+      ' Of course, we need to check that we're seperatly within the range of the other dimesion, which I did NOT do originally :)
+      ende = (player_pos[opp] - 1)
+      if horiz
+        for l = my_base to ende step 2
           xcross = player_trail[opp][l, 2]
           if (x1 < xcross and x2 > xcross) or (x1 > xcross and x2 < xcross)
             ' if the max of line seg a is less than the min of b, _or_ the min of seg a is more than the max of seg b, still no intersect!
             ' otherwise, they DO intersect
             '
             ' we pout this inside all of the loops, since it's the most complex part...
-            if max(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) < min(y1, y2) or min(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) > max(y1, y2)
-              ' no intersect
-            else
+            ' optimize: y1 always == y2
+            if max(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) >= y1 and min(player_trail[opp][l, 3], player_trail[opp][l+1, 3]) <= y1
               'print "HIntersect: "+x1+","+y1+"-"+x2+","+y2+" crossed at "+player_trail[opp][l, 2]+","+player_trail[opp][l+1, 2]+"-"+player_trail[opp][l+1, 3]+","+player_trail[opp][l+1, 3]
               return true
             endif
           endif
-        elseif (horiz == false) and (player_trail[opp][l, 3] == player_trail[opp][l+1, 3])
+        next
+      else
+        for l = my_base to (player_pos[opp] - 1) step 2
           ycross = player_trail[opp][l, 3]
           if (y1 < ycross and y2 > ycross) or (y1 > ycross and y2 < ycross)
-            if max(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) < min(x1, x2) or min(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) > max(x1, x2)
-              ' no intersect
-            else
+            ' optimize: x1 always == x2
+            if max(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) >= x1 and min(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) <= x1
               'print "VIntersect: "+x1+","+y1+"-"+x2+","+y2+" crossed at "+player_trail[opp][l, 2]+","+player_trail[opp][l+1, 2]+"-"+player_trail[opp][l+1, 3]+","+player_trail[opp][l+1, 3]
               return true
             endif
           endif
-        endif
-      next
+        next
+      endif
+    endif
     endif
   next
   'print "Intersect took "+(GetTickCount()-now)+" ticks for worst case"
   return false
-endfunction
-
-function collision(x, y)
-    if x = 0 or y = 0 or x = arena_size_x or y = arena_size_y
-      'print "colliusion at ",x," ",y," due to arena"
-      return true
-    endif
-    ' got line too long when tryhing to do both of these!
-    if arena[y*arena_size_x + x] != 0 
-      'print "colliusion at ",x," ",y," due to trail ",arena[y,x]
-      return true
-    endif
-    return false
 endfunction
 
 ' append to our sprite list
