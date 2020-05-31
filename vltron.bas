@@ -1852,7 +1852,7 @@ sub menu_activate(j, on_exit)
     if menu_data[k][menu_status[k]] == "LEVEL "+j
       ai_skill = (5-j)*100
     endif
-  endif
+  next
   if menu_data[j][menu_status[j]] = "ONE PLAYER"
     computer_only = { false, true, true, true }
     pl_button = 5
