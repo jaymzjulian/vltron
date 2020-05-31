@@ -1210,7 +1210,6 @@ function intersect_collision(p)
   else
     horiz = false
   endif
-  print "col: "+p
   for opp = 1 to player_count
     ' the ubound CAN cause a glitch - we need to eliminate it...
     if alive[opp] 
@@ -1258,7 +1257,6 @@ function intersect_collision(p)
       else
         for l = my_base to (player_pos[opp] - 1) step 2
           ycross = player_trail[opp][l, 3]
-          print ycross
           if (y1 < ycross and y2 > ycross) or (y1 > ycross and y2 < ycross)
             ' optimize: x1 always == x2
             if max(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) < x1 or min(player_trail[opp][l, 2], player_trail[opp][l+1, 2]) > x1
