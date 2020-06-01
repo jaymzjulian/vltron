@@ -35,7 +35,7 @@ include "ayc_play.bai"
 ' sound effects
 dim sfx_list[4]
 sfx_list[1] = loadsfx("vxtron_3.vsfx")
-sfx_list[2] = loadsfx("vxron_2.vsfx")
+sfx_list[2] = loadsfx("vxtron_2.vsfx")
 sfx_list[3] = loadsfx("vxtron_1.vsfx")
 sfx_list[4] = loadsfx("vxtron_go.vsfx")
 sfx_list[5] = loadsfx("vxtron_explode.vsfx")
