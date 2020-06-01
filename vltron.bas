@@ -33,7 +33,7 @@ debug_status = false
 include "ayc_play.bai"
 
 ' sound effects
-dim sfx_list[4]
+dim sfx_list[5]
 sfx_list[1] = loadsfx("vxtron_3.vsfx")
 sfx_list[2] = loadsfx("vxtron_2.vsfx")
 sfx_list[3] = loadsfx("vxtron_1.vsfx")
@@ -2743,6 +2743,7 @@ function sfx_overlay(outregs)
 endfunction
 
 function loadsfx(filename)
+  print "load sfx "+filename
   fh = fopen(filename, "rb")
   mydata = fread(1024, fh)
   call fclose(fh)
