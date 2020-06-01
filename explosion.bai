@@ -1,4 +1,5 @@
 DEBUG_DATA=false
+Struct ExpStruct {dest, accel, gravity, time, ground, cached_frame_count, cache_frame_time, cached_frames}
 ' this function decomposes the object from
 ' a connected set of linesprites, to a set of moveto/drawto
 ' so that we are moving around indvidual lines.
@@ -17,7 +18,6 @@ DEBUG_DATA=false
 ' y_random - additional random impulse for y
 ' break_apart - true/false - do we break the vectors?
 function prepare_explosion(dimensions, obj, world_scale, point, impulse, random, gravity, ground, break_apart)
-  Struct ExpStruct {dest, accel, gravity, time, ground, cached_frame_count, cache_frame_time, cached_frames}
   if break_apart
     work_object = break_apart_object(obj, dimensions)
   else
@@ -63,6 +63,7 @@ sub fill_cache(object, frames, fps)
       call explode2d_impl(object, interval)
     endif
     work_frames[f] = deepcopy(object.dest)
+    mem
   next
   object.dest = deepcopy(saved_obj)
   object.cached_frames = work_frames

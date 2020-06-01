@@ -1,5 +1,5 @@
 include "ayc_settings.bai"
-AYC_MAX=10000
+AYC_MAX=8000
 
 '---------------------------
 ' GLOBALS - these must be global 

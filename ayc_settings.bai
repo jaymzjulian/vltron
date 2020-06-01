@@ -27,4 +27,4 @@ player_rate = 50
 buffer_location = $c882
 buffer_base = $c884
 
-sfx_enabled = false
+sfx_enabled = true

@@ -1,7 +1,8 @@
 '
 ' VxTron32 (c) 2020, Jaymz Julian
 ' For the vectrex32 platform
-'
+' https://github.com/jaymzjulian/vltron
+
 debug_movement = false
 
 
@@ -31,6 +32,17 @@ debug_status = false
 'endif
 include "ayc_play.bai"
 
+' sound effects
+dim sfx_list[4]
+sfx_list[1] = loadsfx("vxtron_3.vsfx")
+sfx_list[2] = loadsfx("vxron_2.vsfx")
+sfx_list[3] = loadsfx("vxtron_1.vsfx")
+sfx_list[4] = loadsfx("vxtron_go.vsfx")
+sfx_list[5] = loadsfx("vxtron_crash.vsfx")
+sfx_id = 0
+sfx_frames_remaining = 0
+sfx_frame_count = 0
+sfx_mask={0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 
 release_mode = true
 'release_mode = false
@@ -69,10 +81,18 @@ view_options = { _
   "FIRST PERSON SPLIT" _
 }
 
+speed_options = { _
+  "NORMAL SPEED", _
+  "FAST", _
+  "FASTEST", _
+  "SLOW", _
+  "SLOWEST" _
+}
 arena_options = { _
   "LARGE ARENA", _
-  "MEDIUM ARENA", _
-  "SMALL ARENA" _
+  "HUGE ARENA", _
+  "SMALL ARENA", _
+  "MEDIUM ARENA" _
 }
 
 ai_challenge = { _
@@ -102,6 +122,7 @@ release_info={"GIT MASTER"}
 menu_data = { _
   start_text, _
   control_options, _
+  speed_options, _
   ai_challenge, _
   cycle_options, _
   view_options, _
@@ -112,17 +133,18 @@ menu_data = { _
   release_info _
 }
 
-menu_status = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+menu_status = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
 options_sprite = { _
-  { -100, 15,    "-> START" }, _
-  { -100, 0,  "   ONE PLAYER" }, _
-  { -100, -15,  "   LEVEL 1" }, _
-  { -100, -30,  "   THIRD PERSON" }, _
-  { -100, -45,  "   LARGE ARENA" }, _
-  { -100, -60,  "   NO DRIVERS" }, _
-  { -100, -75, "   CREDITS" }, _
-  { -100, -90, "   NO STATUS" }, _
+  { -100, 30,    "-> START" }, _
+  { -100, 15,  "   ONE PLAYER" }, _
+  { -100, 0,  "   LEVEL 1" }, _
+  { -100, -15,  "   THIRD PERSON" }, _
+  { -100, -30,  "   LARGE ARENA" }, _
+  { -100, -45,  "   NO DRIVERS" }, _
+  { -100, -60, "   CREDITS" }, _
+  { -100, -75, "   NO STATUS" }, _
+  { -100, -90, "   ETC" }, _
   { -100, -105, "   ETC" }, _
   { -100, -120, "   GIT MASTER" } _
 }
@@ -171,7 +193,7 @@ z_impulse = 2.5
 x_random = 2.5
 y_random = 5.0
 z_random = 2.5
-explosion_time = 2.0
+explosion_time = 1.0
 explosion_fps = 5
 ' we only need one of these, since we're using the cache!
 exploding_cycle = prepare_explosion(3, lc_object, world_scale, {0, 0, 0}, {x_impulse, y_impulse, z_impulse}, {x_random, y_random, z_random}, 9.8, -2.5, false)
@@ -191,10 +213,8 @@ vx_frame_rate = 400
 
 ' we're going to use a bitmap for the arena as well, to simplify collisions
 ' if you update one of these, you need to update all of them!
-arena_size_x = 128
-arena_size_y = 128
-' map_scale is based on a 128x128 arena
-map_scale = ((arena_size_x/96.0) * local_scale)
+arena_size_x = 64
+arena_size_y = 64
 
 
 ' clip_trails seems to take more ticks than it saves in FPS - so it's off for now.
@@ -233,11 +253,15 @@ player_count = 4
 x_move = { 0, 1, 0, -1 }
 y_move = { 1, 0, -1, 0 }
 while true
+mem
 
 ' first things first, show the menu...
 if title_enabled
   call do_menu()
 endif
+
+' map_scale is based on a 128x128 arena
+map_scale = ((arena_size_x/96.0) * local_scale)
 
 player_direction = { 0, 2, 1, 3 }
 player_intensity = {127, 64, 96, 80 }
@@ -464,6 +488,8 @@ if demo_mode = false
   intro_intens = aps(IntensitySprite(127))
   intro_scale = aps(ScaleSprite(127))
   intro_text = aps(LinesSprite(TextToLines("3")))
+  call trigger_sfx(1)
+  intro_fx = 1
 endif
 demo_frames = 0
 
@@ -480,6 +506,7 @@ last_player_clipped = 0
 last_game_tick = GetTickCount() - 1
 col_time = 0
 first_frame = true
+last_is = "x"
 
 while game_is_playing do
   ' 1 eor 3 = 2
@@ -583,8 +610,8 @@ while game_is_playing do
   col_time = 0
   ' process!
   for p = 1 to player_count
-    if music_enabled
-      'call ayc_update_timer()
+    if music_enabled and irq_mode = 0
+      call ayc_update_timer()
     endif
     if game_started and alive[p]
 
@@ -805,6 +832,8 @@ while game_is_playing do
     if intersect_collision(p) = true
       alive[p] = false
       exploding[p] = true
+      ' and an explosion ;)
+      call trigger_sfx(5)
     endif
     col_time = col_time + (GetTickCount() - now)
     endif
@@ -823,8 +852,8 @@ while game_is_playing do
     endif
   next
 
-  if music_enabled
-    'call ayc_update_timer()
+  if music_enabled and irq_mode = 0
+    call ayc_update_timer()
   endif
   
   last_controls = controls
@@ -891,6 +920,8 @@ while game_is_playing do
         call RemoveSprite(intro_text)
         total_objects = total_objects - 1
         intro_text = aps(LinesSprite(TextToLines(intro_val)))
+        intro_fx = intro_fx + 1
+        call trigger_sfx(intro_fx)
       endif
     else
       game_started = true
@@ -1057,8 +1088,8 @@ while game_is_playing do
 
   ' always clip all players...
   for p = 1 to player_count
-    if music_enabled
-      'call ayc_update_timer()
+    if music_enabled and irq_mode = 0
+      call ayc_update_timer()
     endif
     ' this should be really just taken from the thing - need to switch to live data....
     player_loc = {player_x[p, player_pos[p]] - arena_size_x/2, player_y[p, player_pos[p]] - arena_size_y/2}
@@ -1077,8 +1108,8 @@ while game_is_playing do
   ' but only SOMETIMES clip all players here
   new_last_player_clipped = 0
   for real_p = 1 to player_count
-    if music_enabled
-      'call ayc_update_timer()
+    if music_enabled and irq_mode = 0
+      call ayc_update_timer()
     endif
     p = (((real_p - 1) + last_player_clipped) mod player_count) + 1
     otime = GetTickCount() - last_begin
@@ -1173,7 +1204,6 @@ if demo_mode = false
     else
       rank_list[display_count][1, 3] = display_count+": PLAYER "+bestplayer+" SCORE "+player_rank[bestplayer]
     endif
-    rank_list[player_count+1] = {{0, 15*player_count, "PRESS 2+3 TO CONTINUE"}}
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
     call IntensitySprite(127)
@@ -1182,6 +1212,7 @@ if demo_mode = false
       call CodeSprite(ayc_playcode)
     endif
   next
+  call Text2ListSprite({{0, 15*(player_count+1), "PRESS 2+3 TO CONTINUE"}})
   'if music_enabled
   '  call CodeSprite(ayc_playcode)
   '  call CodeSprite(ayc_exit)
@@ -1491,7 +1522,6 @@ endfunction
 ' The 3d model of the lightcycle
 '-------------------------------------------------------------
 function lightcycle()
-  'return reado32("lightcycle.o32")
 mysprite={ _
   {MoveTo,-0.284963,-0.242065,1.085209},   {DrawTo, -0.284963,-0.550938,1.394082} , _
   {DrawTo, -0.452639,-0.242065,1.394082} , _
@@ -1872,6 +1902,21 @@ sub menu_activate(j, on_exit)
     pr_button = 6
     p2_controller = 1
   endif
+  if menu_data[j][menu_status[j]] = "FASTEST"
+    target_game_rate = 45
+  endif
+  if menu_data[j][menu_status[j]] = "FAST"
+    target_game_rate = 30 
+  endif
+  if menu_data[j][menu_status[j]] = "NORMAL SPEED"
+    target_game_rate = 20
+  endif
+  if menu_data[j][menu_status[j]] = "SLOW"
+    target_game_rate = 15
+  endif
+  if menu_data[j][menu_status[j]] = "SLOWEST"
+    target_game_rate = 10
+  endif
   if menu_data[j][menu_status[j]] = "COMPUTER ONLY"
     computer_only = { true, true, true, true }
   endif
@@ -1884,6 +1929,19 @@ sub menu_activate(j, on_exit)
   if menu_data[j][menu_status[j]] = "ONE CYCLE"
     player_count = 1
   endif
+  if menu_data[j][menu_status[j]] = "HUGE ARENA"
+    arena_size_x = 256
+  endif
+  if menu_data[j][menu_status[j]] = "LARGE ARENA"
+    arena_size_x = 128
+  endif
+  if menu_data[j][menu_status[j]] = "MEDIUM ARENA"
+    arena_size_x = 64
+  endif
+  if menu_data[j][menu_status[j]] = "SMALL ARENA"
+    arena_size_x = 32
+  endif
+  arena_size_y = arena_size_x
   if menu_data[j][menu_status[j]] = "THIRD PERSON" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"
     first_person = false
     if computer_only[2] = false
@@ -2664,4 +2722,47 @@ sub  bg(tfc)
   })
   endif
 
+endsub
+
+' this will always recieve an array taht would be fed into sound() of 14 params
+function sfx_overlay(outregs)
+  if sfx_id = 0
+    return outregs
+  endif
+  if sfx_frames_remaining == 0 or (sfx_frame_count+4) >= len(sfx_list[sfx_id])
+    return outregs
+  endif
+  for r = 1 to 14
+    if sfx_mask[r] == 1
+      outregs[r, 2] = sfx_list[sfx_id][4+sfx_frame_count]
+      sfx_frame_count = sfx_frame_count + 1
+    endif
+  next
+  sfx_frames_remaining = sfx_frames_remaining - 1
+  return outregs
+endfunction
+
+function loadsfx(filename)
+  fh = fopen(filename, "rb")
+  mydata = fread(1024, fh)
+  call fclose(fh)
+  return mydata
+endfunction
+
+sub trigger_sfx(id)
+  sfx_frame_count = 0
+  sfx_id = id
+  sfx_frames_remaining = sfx_list[id][1]
+  imask = sfx_list[id][3]
+  for c = 1 to 8
+    sfx_mask[c] = (imask & 1)
+    imask = imask / 2
+  next
+  imask = sfx_list[id][2]
+  for c = 1 to 6
+    sfx_mask[c+8] = (imask & 1)
+    imask = imask / 2
+  next
+  print sfx_mask
+  print "Trigger fx "+id+" has "+sfx_frames_remaining+" frames"
 endsub
