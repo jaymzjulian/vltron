@@ -193,7 +193,7 @@ z_impulse = 2.5
 x_random = 2.5
 y_random = 5.0
 z_random = 2.5
-explosion_time = 1.0
+explosion_time = 2.0
 explosion_fps = 5
 ' we only need one of these, since we're using the cache!
 exploding_cycle = prepare_explosion(3, lc_object, world_scale, {0, 0, 0}, {x_impulse, y_impulse, z_impulse}, {x_random, y_random, z_random}, 9.8, -2.5, false)
@@ -1212,6 +1212,7 @@ if demo_mode = false
       call CodeSprite(ayc_playcode)
     endif
   next
+  call Text2ListSprite({{0, 15*(player_count+2), "GAME OVER"}})
   call Text2ListSprite({{0, 15*(player_count+1), "PRESS 2+3 TO CONTINUE"}})
   'if music_enabled
   '  call CodeSprite(ayc_playcode)
