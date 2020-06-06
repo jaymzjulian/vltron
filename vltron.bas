@@ -96,11 +96,11 @@ arena_options = { _
 }
 
 ai_challenge = { _
-  "LEVEL 1", _
-  "LEVEL 2", _
   "LEVEL 3", _
   "LEVEL 4", _
-  "LEVEL 5" _
+  "LEVEL 5", _
+  "LEVEL 1", _
+  "LEVEL 2" _
 }
 
 driver_options = { _
@@ -922,9 +922,9 @@ while game_is_playing do
   endif
 
   ' if we're not playing yet, wait until we are!
-  if game_started = false
+  if game_started = false or intro_scale_val > 0
     if intro_scale_val > 0
-      intro_scale_val = intro_scale_val - 4
+      intro_scale_val = intro_scale_val - (8.0 * move_scale)
       call SpriteScale(intro_scale, intro_scale_val) 
       call SpriteIntensity(intro_intens, intro_scale_val)
       if intro_scale_val < 1 and intro_val > 0
@@ -932,15 +932,20 @@ while game_is_playing do
         intro_val = intro_val - 1
         call RemoveSprite(intro_text)
         total_objects = total_objects - 1
-        intro_text = aps(LinesSprite(TextToLines(intro_val)))
+        if intro_val == 0 
+          intro_text = aps(LinesSprite(TextToLines("GO")))
+          game_started = true
+        else
+          intro_text = aps(LinesSprite(TextToLines(intro_val)))
+        endif
         intro_fx = intro_fx + 1
         call trigger_sfx(intro_fx)
       endif
     else
-      game_started = true
       call drawscreen
     endif
-  else
+  endif
+  if game_started
     first_frame = false
   endif
 
