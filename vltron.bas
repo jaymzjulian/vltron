@@ -69,8 +69,8 @@ control_options = { _
 }
 
 cycle_options = { _
-  "TWO CYCLES", _
   "FOUR CYCLES", _
+  "TWO CYCLES", _
   "ONE CYCLE" _
 }
 
@@ -155,7 +155,7 @@ credits_sprite[1] = { _
   { -100, 75, "(C) 2020 JAYMZ JULIAN" }, _
   { -100, 60,  "CODE BY JAYMZ JULIAN" }, _
   { -100, 45,  "3D MODELS BY ILKKE" }, _
-  { -100, 30,  "MUSIC BY PETER HAJBA (SKAVEN)" } _
+  { -100, 30,  "MUSIC BY PETER HAJBA (SKAVEN)" }, _
   { -100, 15,  "CONVERTED BY JAYMZ JULIAN" } _
   }
 
@@ -274,7 +274,7 @@ if title_enabled
 endif
 
 ' map_scale is based on a 128x128 arena
-map_scale = ((arena_size_x/96.0) * local_scale)
+map_scale = ((170.0/arena_size_x) * local_scale)
 
 player_direction = { 0, 2, 1, 3 }
 player_intensity = {127, 64, 96, 80 }
@@ -1752,7 +1752,7 @@ sub menu_activate(j, on_exit)
     player_count = 1
   endif
   if menu_data[j][menu_status[j]] = "HUGE ARENA"
-    arena_size_x = 256
+    arena_size_x = 254
   endif
   if menu_data[j][menu_status[j]] = "LARGE ARENA"
     arena_size_x = 128
