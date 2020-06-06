@@ -4,7 +4,7 @@
 buffer_mode = 1
 
 ' should we use IRQ based timing, or Poke based timing?
-irq_mode = 1
+irq_mode = 0
 
 ' do we wait for the next frame to be "due" before we continue?
 buffer_mode_preserve_refresh = 0

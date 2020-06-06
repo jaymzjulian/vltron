@@ -30,7 +30,7 @@ debug_status = false
 'if music_enabled
 '  include "ayc_play.bai"
 'endif
-include "ayc_play.bai"
+include "jjay_play.bai"
 
 ' sound effects
 dim sfx_list[5]
@@ -148,17 +148,30 @@ options_sprite = { _
   { -100, -105, "   ETC" }, _
   { -100, -120, "   GIT MASTER" } _
 }
-credits_sprite = { _
+
+dim credits_sprite[3]
+credits_sprite[1] = { _
   { -100, 90, "VLTRON GIT MASTER" }, _
-  { -100, 75, "g 2020 JAYMZ JULIAN" }, _
+  { -100, 75, "(C) 2020 JAYMZ JULIAN" }, _
   { -100, 60,  "CODE BY JAYMZ JULIAN" }, _
   { -100, 45,  "3D MODELS BY ILKKE" }, _
-  { -100, 30,  "MUSIC BY BEN DAGLISH" }, _
+  { -100, 30,  "MUSIC BY PETER HAJBA (SKAVEN)" } _
+  { -100, 15,  "CONVERTED BY JAYMZ JULIAN" } _
+  }
+
+credits_sprite[2] =  { _
   { -100, 15,  "THANKS TO:" }, _
   { -100, 1,  " BOB ALEXANDER, FOR THE VEXTREX32 PLATFORM," }, _
   { -100, -15,  "    SUPPORT IN GETTING TO GRIPS WITH IT,"},_
   { -100, -30,  "    AND FOR ADDING FEATURES WHICH MADE THIS"},_
   { -100, -45,  "    GAME POSSIBLE" } _
+}
+
+credits_sprite[2] =  { _
+  { -100, 15,  "THANKS TO:" }, _
+  { -100, 1,    " ILKKE FOR THE HELP WITH VECTORS," }, _
+  { -100, -15,  " MEL FOR PUTTING UP WITH THIS SHIT,"},_
+  { -100, -30,  " AND YOU FOR PLAYING!" } _
 }
 menu_cursor = 1
 tfc = 0
@@ -237,7 +250,7 @@ status_enabled = true
 
 ' load our music from flash
 if music_enabled
-  call load_and_init("vxtron.ayc")
+  call load_and_init("vxtron.jjay")
 endif
 
 ' make these toggleable on the menu
@@ -1567,7 +1580,7 @@ sub title_picture()
   tfc = tfc mod 3
 endsub
 
-sub do_credits()
+sub do_credits(page)
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   last_controls = controls
   while controls[1,3] = 0 or last_controls[1,3] = controls[1,3]
@@ -1579,22 +1592,25 @@ sub do_credits()
     endif
     call ReturnToOriginSprite()
     call IntensitySprite(127)
-    for j = 1 to (Ubound(credits_sprite)-1) step 2
+    for j = 1 to Ubound(credits_sprite[page])
       ' why this?  music!
-      call Text2ListSprite({ _
-          {credits_sprite[j,1], credits_sprite[j,2], credits_sprite[j,3]}, _
-          {credits_sprite[j+1,1], credits_sprite[j+1,2], credits_sprite[j+1,3]} _
-          })
-      if music_enabled
-        call CodeSprite(ayc_playcode)
+      call Text2ListSprite({{credits_sprite[page][j,1], credits_sprite[page][j,2], credits_sprite[page][j,3]}})
+      if (j&2) == 0
+        if music_enabled
+          call CodeSprite(ayc_playcode)
+        endif
       endif
     next
     if music_enabled
+      call CodeSprite(ayc_playcode)
       call CodeSprite(ayc_exit)
     endif
     last_controls = controls
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   endwhile
+  if page < Ubound(credits_sprite)
+    call do_credits(page+1)
+  endif
 endsub
 
 sub do_menu()
@@ -1683,7 +1699,7 @@ sub menu_activate(j, on_exit)
     in_menu = false
   endif
   if menu_data[j][menu_status[j]] = "CREDITS" and on_exit = false
-    call do_credits()
+    call do_credits(1)
   endif
   ' AI levels are level * 200 - that should give a "reasonable" challenge.... but have level 1 be super easy
   for level = 1 to 5
