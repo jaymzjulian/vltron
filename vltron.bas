@@ -167,7 +167,7 @@ credits_sprite[2] =  { _
   { -100, -45,  "    GAME POSSIBLE" } _
 }
 
-credits_sprite[2] =  { _
+credits_sprite[3] =  { _
   { -100, 15,  "THANKS TO:" }, _
   { -100, 1,    " ILKKE FOR THE HELP WITH VECTORS," }, _
   { -100, -15,  " MEL FOR PUTTING UP WITH THIS SHIT,"},_
