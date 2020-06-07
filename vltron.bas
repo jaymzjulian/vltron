@@ -25,6 +25,7 @@ textsize = {40, 5}
 ' globals for gameplay :)
 music_enabled = true
 title_enabled = true
+timing_debug = false
 debug_status = false
 ' you can't acutally do this ;)
 'if music_enabled
@@ -922,8 +923,8 @@ while game_is_playing do
   endif
 
   ' if we're not playing yet, wait until we are!
-  if game_started = false or intro_scale_val > 0
-    if intro_scale_val > 0
+  if (game_started = false or intro_scale_val > 0) and demo_mode = false
+    if intro_scale_val > 0 
       intro_scale_val = intro_scale_val - (8.0 * move_scale)
       call SpriteScale(intro_scale, intro_scale_val) 
       call SpriteIntensity(intro_intens, intro_scale_val)
@@ -1216,7 +1217,7 @@ if demo_mode = false
         bestplayer = p
       endif
     next
-    rank_list[display_count] = {{0, 15*display_count, "TEXT"}}
+    rank_list[display_count] = {{-120, 15*(display_count + 1), "TEXT"}}
     if computer_only[bestplayer]
       rank_list[display_count][1, 3] = display_count+": COMPUTER "+bestplayer+" SCORE "+player_rank[bestplayer]
     else
@@ -1225,13 +1226,14 @@ if demo_mode = false
     displayed[bestplayer] = true
     ' seperated so that we call the music poalkyer often enough!
     call IntensitySprite(127)
-    call Text2ListSprite(rank_list[display_count])
+    call ReturnToOriginSprite()
+    call TextListSprite(rank_list[display_count])
     if music_enabled
       call CodeSprite(ayc_playcode)
     endif
   next
-  call Text2ListSprite({{0, 15*(player_count+2), "GAME OVER"}})
-  call Text2ListSprite({{0, 15*(player_count+1), "PRESS 2+3 TO CONTINUE"}})
+  call TextListSprite({{-120, 15*(player_count+3), "GAME OVER"}})
+  call TextListSprite({{-120, 15*(player_count+2), "PRESS 2+3 TO CONTINUE"}})
   'if music_enabled
   '  call CodeSprite(ayc_playcode)
   '  call CodeSprite(ayc_exit)
@@ -1430,7 +1432,7 @@ sub drawscreen
   ' status display
   if status_enabled
     call aps_rto()
-    call aps(Text2ListSprite(status_display))
+    call aps(TextListSprite(status_display))
   endif
   
 
@@ -1618,7 +1620,7 @@ sub do_credits(page)
     call IntensitySprite(127)
     for j = 1 to Ubound(credits_sprite[page])
       ' why this?  music!
-      call Text2ListSprite({{credits_sprite[page][j,1], credits_sprite[page][j,2], credits_sprite[page][j,3]}})
+      call TextListSprite({{credits_sprite[page][j,1], credits_sprite[page][j,2], credits_sprite[page][j,3]}})
       if (j&2) == 0
         if music_enabled
           call CodeSprite(ayc_playcode)
@@ -1646,29 +1648,40 @@ sub do_menu()
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   no_input_frames = 0
   demo_mode = false
+  ll = GetTickCount()
   while in_menu
-
     ' main loop
     call title_picture()
-    if music_enabled
-      call CodeSprite(ayc_pokedata)
-      call update_music_vbi
-    endif
     call ReturnToOriginSprite()
     call IntensitySprite(127)
     for j = 1 to Ubound(options_sprite)
       ' why this?  music!
-      call Text2ListSprite({{options_sprite[j,1], options_sprite[j,2], options_sprite[j,3]}})
+      call TextListSprite({{options_sprite[j,1], options_sprite[j,2], options_sprite[j,3]}})
       if music_enabled
         call CodeSprite(ayc_playcode)
       endif
     next
+
+    if timing_debug
+      print "pre-music: "+(GetTickCount() - ll)
+    endif
     
+    if music_enabled
+      call CodeSprite(ayc_pokedata)
+      call update_music_vbi
+    endif
+    if timing_debug
+      print "post-music: "+(GetTickCount() - ll)
+    endif
     if music_enabled
       call CodeSprite(ayc_exit)
     endif
     last_controls = controls
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
+    if timing_debug
+      print "post-WFF: "+(GetTickCount() - ll)
+    endif
+    ll= GetTickCount()
     if controls[1,2] != last_controls[1, 2]
       ' dear gce, i hate the way everything on this console is upside down
       ' love as always, jaymz
@@ -1834,9 +1847,9 @@ endsub
 
 sub update_menu()
   for j = 1 to Ubound(menu_data)
-    cursor_text = "   "
+    cursor_text = ""
     if menu_cursor = j
-      cursor_text = "-> "
+      cursor_text = "> "
     endif
     options_sprite[j, 3] = cursor_text + menu_data[j][menu_status[j]]
   next
