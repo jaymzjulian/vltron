@@ -846,8 +846,11 @@ while game_is_playing do
     if intersect_collision(p) = true
       alive[p] = false
       exploding[p] = true
-      ' and an explosion ;)
-      call trigger_sfx(5)
+      ' dont trigger explosion sounds in demo mode!
+      if demo_mode != true
+        ' and an explosion ;)
+        call trigger_sfx(5)
+      endif
     endif
     col_time = col_time + (GetTickCount() - now)
     endif
