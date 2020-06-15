@@ -17,7 +17,7 @@ dualport_flag = 3
 ' number of buffers.  
 '
 ' Currently, we non-optionally consume 70 bytes of dpram per buffer - so 4 buffers would be 280 bytes of dpram. 
-buffer_count = 8
+buffer_count = 6
 
 ' rate of playback - 50hz by default...
 player_rate = 50
