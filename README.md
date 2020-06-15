@@ -24,3 +24,4 @@ button 2 - turn right
 button 3 - turn left (player 2)
 button 4 - turn right (player 2)
 
+Finally, you can exit to the vectrex32 menu by selecting the release at the bottom of the menu!
