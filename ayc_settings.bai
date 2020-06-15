@@ -4,7 +4,7 @@
 buffer_mode = 1
 
 ' should we use IRQ based timing, or Poke based timing?
-irq_mode = 0
+irq_mode = 1
 
 ' do we wait for the next frame to be "due" before we continue?
 buffer_mode_preserve_refresh = 0
@@ -12,12 +12,12 @@ dualport_return = 1
 dualport_status = 2
 dualport_flag = 3
 
-'--------------------------------------------------------------------'
+'--------------------------------------------------------------------6
 ' This is only required if buffer_mode is set to 1 - you can save a few byres of ram by excluding it if you want, otherwise
 ' number of buffers.  
 '
 ' Currently, we non-optionally consume 70 bytes of dpram per buffer - so 4 buffers would be 280 bytes of dpram. 
-buffer_count = 6
+buffer_count = 8
 
 ' rate of playback - 50hz by default...
 player_rate = 50

@@ -150,7 +150,7 @@ options_sprite = { _
   { -100, -120, "   GIT MASTER" } _
 }
 
-dim credits_sprite[3]
+dim credits_sprite[4]
 credits_sprite[1] = { _
   { -100, 90, "VLTRON GIT MASTER" }, _
   { -100, 75, "(C) 2020 JAYMZ JULIAN" }, _
@@ -173,6 +173,11 @@ credits_sprite[3] =  { _
   { -100, 1,    " ILKKE FOR THE HELP WITH VECTORS," }, _
   { -100, -15,  " MEL FOR PUTTING UP WITH THIS SHIT,"},_
   { -100, -30,  " AND YOU FOR PLAYING!" } _
+}
+credits_sprite[4] =  { _
+  { -100, 1,    " FOLLOW US ON TWITTER" }, _
+  { -100, -15,  "  @DUCKPOULTRY"},_
+  { -100, -30,  "  @ILKKKE" } _
 }
 menu_cursor = 1
 tfc = 0
@@ -207,7 +212,7 @@ z_impulse = 2.5
 x_random = 2.5
 y_random = 5.0
 z_random = 2.5
-explosion_time = 2.0
+explosion_time = 1.8
 explosion_fps = 5
 ' we only need one of these, since we're using the cache!
 exploding_cycle = prepare_explosion(3, lc_object, world_scale, {0, 0, 0}, {x_impulse, y_impulse, z_impulse}, {x_random, y_random, z_random}, 9.8, -2.5, false)
@@ -338,6 +343,8 @@ cycle_clippingRect = {{-255*cycle_local_scale,-255*cycle_local_scale},{255*cycle
 '  clippingRect = {{-255*local_scale,-255*local_scale},{255*local_scale,0}}
 '  cycle_clippingRect = {{-255*cycle_local_scale,-255*cycle_local_scale},{255*cycle_local_scale,0}}
 'endif
+  ' set up some explosion stuff first!
+exploding = { false, false, false, false }
 
 move_speed = 1
 camera_step = 2
@@ -1610,6 +1617,7 @@ sub title_picture()
 endsub
 
 sub do_credits(page)
+  while page <= Ubound(credits_sprite)
   controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   last_controls = controls
   while controls[1,3] = 0 or last_controls[1,3] = controls[1,3]
@@ -1637,9 +1645,8 @@ sub do_credits(page)
     last_controls = controls
     controls = WaitForFrame(JoystickDigital, Controller1, JoystickY)
   endwhile
-  if page < Ubound(credits_sprite)
-    call do_credits(page+1)
-  endif
+  page=page+1
+  endwhile
 endsub
 
 sub do_menu()
@@ -1802,6 +1809,9 @@ sub menu_activate(j, on_exit)
   endif
   if menu_data[j][menu_status[j]] = "SMALL ARENA"
     arena_size_x = 32
+  endif
+  if menu_data[j][menu_status[j]] = "GIT MASTER" and on_exit == false
+    stop
   endif
   arena_size_y = arena_size_x
   if menu_data[j][menu_status[j]] = "THIRD PERSON" or menu_data[j][menu_status[j]] = "THIRD PERSON SPLIT"

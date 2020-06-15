@@ -4,6 +4,9 @@ fi
 mkdir vxtron32
 python ../objtools/vx32-bundle.py vltron.bas vxtron32/vxtron32.bas      
 sed -i "s/GIT MASTER/$*/g" vxtron32/vxtron32.bas
-cp vxtron.ayc vxtron32/
+cp vxtron.jjay vxtron32/
+cp *.vsfx vxtron32/ 
+cp *.o32 vxtron32/
+cp *.s32 vxtron32/
 cp README.md vxtron32/
 zip -r vxtron32.zip vxtron32
