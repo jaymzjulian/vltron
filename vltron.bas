@@ -1240,6 +1240,7 @@ if demo_mode = false
     call TextListSprite(rank_list[display_count])
     if music_enabled
       call CodeSprite(ayc_playcode)
+      call ayc_update_timer()
     endif
   next
   call TextListSprite({{-120, 15*(player_count+3), "GAME OVER"}})
@@ -1363,6 +1364,7 @@ function aps_rto()
   r=all_sprites[total_objects]
   if music_enabled
     call aps(CodeSprite(ayc_playcode))
+    call ayc_update_timer()
   endif
   return r
 endfunction
@@ -1547,6 +1549,7 @@ sub display_from_disk(filename)
     call LinesSprite(copyarray(o))
     if music_enabled
       call CodeSprite(ayc_playcode)
+      call ayc_update_timer()
     endif
     call ReturnToOriginSprite()
   next
@@ -1632,13 +1635,13 @@ sub do_credits(page)
     for j = 1 to Ubound(credits_sprite[page])
       ' why this?  music!
       call TextListSprite({{credits_sprite[page][j,1], credits_sprite[page][j,2], credits_sprite[page][j,3]}})
-      if (j&2) == 0
-        if music_enabled
-          call CodeSprite(ayc_playcode)
-        endif
+      if music_enabled
+        call CodeSprite(ayc_playcode)
+        call ayc_update_timer()
       endif
     next
     if music_enabled
+      call ayc_update_timer()
       call CodeSprite(ayc_playcode)
       call CodeSprite(ayc_exit)
     endif
@@ -1669,6 +1672,7 @@ sub do_menu()
       call TextListSprite({{options_sprite[j,1], options_sprite[j,2], options_sprite[j,3]}})
       if music_enabled
         call CodeSprite(ayc_playcode)
+        call ayc_update_timer()
       endif
     next
 
@@ -1953,6 +1957,7 @@ sub  bg(tfc)
 
   if music_enabled
     call CodeSprite(ayc_playcode)
+    call ayc_update_timer()
   endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
@@ -2025,6 +2030,7 @@ sub  bg(tfc)
 
   if music_enabled
     call CodeSprite(ayc_playcode)
+    call ayc_update_timer()
   endif
   call ReturnToOriginSprite()
   endif
@@ -2099,6 +2105,7 @@ sub  bg(tfc)
 
   if music_enabled
     call CodeSprite(ayc_playcode)
+    call ayc_update_timer()
   endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
@@ -2171,6 +2178,7 @@ sub  bg(tfc)
 
   if music_enabled
     call CodeSprite(ayc_playcode)
+    call ayc_update_timer()
   endif
   call ReturnToOriginSprite()
   endif
@@ -2245,6 +2253,7 @@ sub  bg(tfc)
 
   if music_enabled
     call CodeSprite(ayc_playcode)
+    call ayc_update_timer()
   endif
   call ReturnToOriginSprite()
   call LinesSprite({ _
