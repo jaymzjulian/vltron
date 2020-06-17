@@ -1599,6 +1599,7 @@ sub title_picture()
   call TextSizeSprite(textsize)
   if music_enabled
     call CodeSprite(ayc_init)
+    call CodeSprite(ayc_pokedata)
   endif
   call ReturnToOriginSprite()
   ' display a SVG title screen first
@@ -1627,7 +1628,6 @@ sub do_credits(page)
 
     call title_picture()
     if music_enabled
-      call CodeSprite(ayc_pokedata)
       call update_music_vbi
     endif
     call ReturnToOriginSprite()
@@ -1681,7 +1681,6 @@ sub do_menu()
     endif
     
     if music_enabled
-      call CodeSprite(ayc_pokedata)
       call update_music_vbi
     endif
     if timing_debug
