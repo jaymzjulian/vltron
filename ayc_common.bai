@@ -49,7 +49,7 @@ if buffer_mode = 1
   buffer_location = $c882
   buffer_base = $c884
   ' buffers are 14*2 + 1 bytes long
-  buffer_end = buffer_base + buffer_count * 29
+  buffer_end = buffer_base + (buffer_count - 1) * 29
   ' add an extra buffer_end for this, because of that way it's calculated...
   if irq_mode = 1
     flag_loc = buffer_end + 29
