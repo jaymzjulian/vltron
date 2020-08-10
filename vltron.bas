@@ -136,6 +136,7 @@ menu_data = { _
 
 menu_status = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
+
 options_sprite = { _
   { -100, 30,    "-> START" }, _
   { -100, 15,  "   ONE PLAYER" }, _
@@ -186,6 +187,24 @@ in_menu = true
 demo_mode = false
 max_demo_frames = 450
 
+' load the settings from disk, if such exist
+on error call bad_menu
+save_data = fopen("vxtron_settings.dat", "rt")
+if (isnil save_data) == 0
+  for j = 1 to Ubound(menu_status)
+    q = fgets(save_data)
+    'print q
+    q = Val(q)
+   ' print q
+    q = Int(q)
+    'print q
+    if q!= 0
+      menu_status[j]=q
+    endif
+  next
+  call fclose(save_data)
+  call update_menu()
+endif
 
 print "Passed BAI"
 include "explosion.bai"
@@ -277,6 +296,13 @@ mem
 ' first things first, show the menu...
 if title_enabled
   call do_menu()
+  ' and save the data
+  save_data = fopen("vxtron_settings.dat", "wt")
+  for j = 1 to Ubound(menu_status)
+    ' ensure it's a string....
+    call fputs("" + menu_status[j] + chr(10), save_data)
+  next
+  call fclose(save_data)
 endif
 
 ' map_scale is based on a 128x128 arena
@@ -1869,6 +1895,7 @@ sub update_menu()
     endif
     options_sprite[j, 3] = cursor_text + menu_data[j][menu_status[j]]
   next
+
 endsub
 
 '--------------------------------
@@ -2364,4 +2391,8 @@ sub trigger_sfx(id)
   next
   print sfx_mask
   print "Trigger fx "+id+" has "+sfx_frames_remaining+" frames"
+endsub
+
+sub bad_menu
+  print "ERROR READING SETTINGS!"
 endsub
