@@ -204,8 +204,7 @@ sub update_music_vbi
     ' anyhow - the sequence either _is_, or _is not_.  If it _is not_, we wait at least 10 ticks for
     ' the first code to be executed.  We finally add a 1 second timeout - this should never ever get hit, but it'll cause
     ' us to break out...
-		while ((Peek(dualport_status) != ayc_dp_sequence) or (GetTickCount()-ayc_tick)<10 and ayc_dp_sequence!=1) _
-          and (GetTickCount()-ayc_last_frame_tick)<96
+		while (Peek(dualport_status) != ayc_dp_sequence) and (GetTickCount()-ayc_last_frame_tick)<96
       if irq_mode = 0
         call ayc_update_timer
       endif
